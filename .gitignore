@@ -1,0 +1,56 @@
+# Dependencies
+node_modules
+.pnpm-store
+
+# Project-local Python / browser dependencies and caches
+.venv/
+__pycache__/
+*.py[cod]
+.cache/
+
+# Build outputs
+dist
+.next
+out
+build
+
+# Turbo
+.turbo
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# IDE
+.vscode
+.idea
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+npm-debug.log*
+
+# Testing
+coverage
+
+# Misc
+*.tsbuildinfo
+CHECKPOINT.md
+
+# Local media storage (dev)
+apps/uploads/
+
+# Agent / AI IDE configs
+.agents/
+.codex/
+.cursor/
+.gemini/
+
+# Cached ML models
+apps/api/apps/

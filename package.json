@@ -1,0 +1,29 @@
+{
+  "name": "tempo",
+  "private": true,
+  "scripts": {
+    "setup": "bash scripts/setup.sh",
+    "deps:clean": "bash scripts/clean-dependencies.sh",
+    "build": "turbo run build",
+    "dev": "bash scripts/dev-tempo.sh",
+    "browser:gpu": "bash scripts/launch-tempo-chrome.sh",
+    "dev:up": "docker compose up -d && echo '✅ Docker ready' && bash scripts/dev-tempo.sh",
+    "dev:down": "docker compose down",
+    "lint": "turbo run lint",
+    "typecheck": "pnpm --filter @tempo/api typecheck && pnpm --filter @tempo/web exec tsc --noEmit",
+    "clean": "turbo run clean",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "benchmark:reference": "pnpm --filter @tempo/api exec node --import tsx ../../scripts/run-reference-blueprint-benchmark.ts",
+    "db:generate": "turbo run db:generate --filter=@tempo/db",
+    "db:migrate": "turbo run db:migrate --filter=@tempo/db",
+    "db:push": "DATABASE_URL=postgresql://postgres:postgres@localhost:5432/tempo turbo run db:push --filter=@tempo/db"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.62.1",
+    "@vitest/coverage-v8": "^4.1.10",
+    "turbo": "^2.5.0",
+    "vitest": "^4.1.10"
+  },
+  "packageManager": "pnpm@10.8.0"
+}
