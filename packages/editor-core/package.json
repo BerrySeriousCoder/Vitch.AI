@@ -1,0 +1,24 @@
+{
+  "name": "@tempo/editor-core",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./src/index.ts",
+      "import": "./src/index.ts",
+      "default": "./src/index.ts"
+    }
+  },
+  "scripts": {
+    "build": "tsc",
+    "clean": "rm -rf dist"
+  },
+  "dependencies": {
+    "@tempo/types": "workspace:*"
+  },
+  "devDependencies": {
+    "@tempo/config-typescript": "workspace:*",
+    "typescript": "^5.8.0"
+  }
+}
