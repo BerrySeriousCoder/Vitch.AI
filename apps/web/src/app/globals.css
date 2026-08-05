@@ -1,0 +1,88 @@
+@import "tailwindcss";
+
+/* ─── Shadcn-Style Clean Dark Theme ──────────────────────── */
+:root {
+  /* Slate/Zinc Dark Palette */
+  --bg-primary: #09090b;       /* zinc-950 */
+  --bg-secondary: #121215;     /* subtle elevated card */
+  --bg-tertiary: #18181b;      /* zinc-900 */
+  --bg-muted: #27272a;         /* zinc-800 */
+
+  /* Primary Accent (Shadcn crisp white/neutral) */
+  --tempo-primary: #fafafa;    /* zinc-50 */
+  --tempo-primary-hover: #e4e4e7;
+  --tempo-primary-text: #09090b;
+
+  /* Secondary / Muted Action */
+  --tempo-secondary: #27272a;
+  --tempo-secondary-hover: #3f3f46;
+
+  /* Text */
+  --text-primary: #f4f4f5;     /* zinc-100 */
+  --text-secondary: #a1a1aa;   /* zinc-400 */
+  --text-muted: #71717a;       /* zinc-500 */
+
+  /* Borders */
+  --border-default: #27272a;   /* zinc-800 */
+  --border-hover: #3f3f46;     /* zinc-700 */
+
+  /* Status */
+  --success: #22c55e;
+  --warning: #eab308;
+  --error: #ef4444;
+
+  /* Radius (Shadcn clean sharp-rounded look) */
+  --radius-sm: 4px;
+  --radius-md: 6px;
+  --radius-lg: 8px;
+}
+
+@theme inline {
+  --color-background: var(--bg-primary);
+  --color-foreground: var(--text-primary);
+  --color-primary: var(--tempo-primary);
+  --color-surface: var(--bg-secondary);
+  --color-muted: var(--text-muted);
+  --color-border: var(--border-default);
+  --font-sans: var(--font-font-sans);
+}
+
+/* ─── Base ──────────────────────────────────────────────── */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--bg-muted) transparent;
+}
+
+html {
+  background: var(--bg-primary);
+  color-scheme: dark;
+}
+
+body {
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  font-family: var(--font-font-sans, system-ui, -apple-system, sans-serif);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* ─── Focus & Selection ──────────────────────────────────── */
+:focus-visible {
+  outline: 1px solid var(--text-primary);
+  outline-offset: 1px;
+}
+
+::selection {
+  background: #27272a;
+  color: #fafafa;
+}
+
+/* ─── Minimal Animations ────────────────────────────────── */
+@keyframes fade-in {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.animate-fade-in {
+  animation: fade-in 0.2s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
