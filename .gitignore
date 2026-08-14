@@ -42,6 +42,12 @@ coverage
 # Misc
 *.tsbuildinfo
 CHECKPOINT.md
+MILESTONES.md
+CAPTION_SYNC_PLAN.md
+PERFORMANCE_AND_EXPORT.md
+AGENT_HARNESS.md
+AGENTIC_INTELLIGENCE_INVENTORY.md
+EDITOR_CAPABILITY_INVENTORY.md
 
 # Local media storage (dev)
 apps/uploads/
