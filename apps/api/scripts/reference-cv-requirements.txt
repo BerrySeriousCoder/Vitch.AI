@@ -1,0 +1,6 @@
+# Optional production accelerator. Tempo works without this environment.
+numpy>=1.26,<3
+opencv-python-headless>=4.10,<5
+# Optional OCR geometry/model. Keep in a separate worker environment when its
+# inference-engine dependency conflicts with the main API runtime.
+paddleocr>=3.3,<4
