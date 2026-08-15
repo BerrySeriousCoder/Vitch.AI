@@ -1,0 +1,146 @@
+{
+  "id": "benchmark-mountain-grid-v1-gold",
+  "referenceUrl": "benchmark://mountain-grid-v1/reference.mp4",
+  "totalDuration": 6.17,
+  "aspectRatio": "16:9",
+  "referenceWidth": 1916,
+  "referenceHeight": 1078,
+  "segments": [
+    {
+      "index": 0,
+      "startTime": 0,
+      "duration": 6.17,
+      "shotType": "other",
+      "motionType": "static",
+      "transitionToNext": "cut",
+      "energyLevel": 78,
+      "visualDescription": "Black composition with a cumulative media-matte MOUNTAIN title; four anchored quadrant panels expand over and progressively occlude the title.",
+      "colorPalette": ["#000000", "#315A42", "#6B8C96"],
+      "effects": ["media-matte typography", "anchored 2x2 panel expansion"],
+      "textOverlays": [
+        { "text": "M", "style": "bold", "position": "center", "animation": "cut", "fillMode": "media-matte", "zIndex": 1, "sequenceMode": "exclusive", "sequenceGroupId": "mountain-spelling", "appearance": { "fontFamilyClass": "sans", "fontFamilyHint": "Archivo Black", "fontWidth": "normal", "fontWeight": 900, "fontSizeRatio": 0.16, "color": "#FFFFFF", "strokeColor": "#000000", "strokeWidthRatio": 0, "backgroundColor": "#000000", "backgroundOpacity": 1, "textAlign": "center", "letterSpacingRatio": 0.05, "uppercase": true, "shadow": false, "rotation": 0, "confidence": 1 }, "geometry": { "x": 0.5, "y": 0.5, "width": 0.12, "height": 0.18, "confidence": 1 }, "timing": { "startRatio": 0, "endRatio": 0.068071313, "confidence": 1 } },
+        { "text": "MO", "style": "bold", "position": "center", "animation": "cut", "fillMode": "media-matte", "zIndex": 1, "sequenceMode": "exclusive", "sequenceGroupId": "mountain-spelling", "appearance": { "fontFamilyClass": "sans", "fontFamilyHint": "Archivo Black", "fontWidth": "normal", "fontWeight": 900, "fontSizeRatio": 0.16, "color": "#FFFFFF", "strokeColor": "#000000", "strokeWidthRatio": 0, "backgroundColor": "#000000", "backgroundOpacity": 1, "textAlign": "center", "letterSpacingRatio": 0.05, "uppercase": true, "shadow": false, "rotation": 0, "confidence": 1 }, "geometry": { "x": 0.5, "y": 0.5, "width": 0.2, "height": 0.18, "confidence": 1 }, "timing": { "startRatio": 0.068071313, "endRatio": 0.162074554, "confidence": 1 } },
+        { "text": "MOU", "style": "bold", "position": "center", "animation": "cut", "fillMode": "media-matte", "zIndex": 1, "sequenceMode": "exclusive", "sequenceGroupId": "mountain-spelling", "appearance": { "fontFamilyClass": "sans", "fontFamilyHint": "Archivo Black", "fontWidth": "normal", "fontWeight": 900, "fontSizeRatio": 0.16, "color": "#FFFFFF", "strokeColor": "#000000", "strokeWidthRatio": 0, "backgroundColor": "#000000", "backgroundOpacity": 1, "textAlign": "center", "letterSpacingRatio": 0.05, "uppercase": true, "shadow": false, "rotation": 0, "confidence": 1 }, "geometry": { "x": 0.5, "y": 0.5, "width": 0.26, "height": 0.18, "confidence": 1 }, "timing": { "startRatio": 0.162074554, "endRatio": 0.257050243, "confidence": 1 } },
+        { "text": "MOUNT", "style": "bold", "position": "center", "animation": "cut", "fillMode": "media-matte", "zIndex": 1, "sequenceMode": "exclusive", "sequenceGroupId": "mountain-spelling", "appearance": { "fontFamilyClass": "sans", "fontFamilyHint": "Archivo Black", "fontWidth": "normal", "fontWeight": 900, "fontSizeRatio": 0.16, "color": "#FFFFFF", "strokeColor": "#000000", "strokeWidthRatio": 0, "backgroundColor": "#000000", "backgroundOpacity": 1, "textAlign": "center", "letterSpacingRatio": 0.05, "uppercase": true, "shadow": false, "rotation": 0, "confidence": 1 }, "geometry": { "x": 0.5, "y": 0.5, "width": 0.38, "height": 0.18, "confidence": 1 }, "timing": { "startRatio": 0.257050243, "endRatio": 0.351053485, "confidence": 1 } },
+        { "text": "MOUNTA", "style": "bold", "position": "center", "animation": "cut", "fillMode": "media-matte", "zIndex": 1, "sequenceMode": "exclusive", "sequenceGroupId": "mountain-spelling", "appearance": { "fontFamilyClass": "sans", "fontFamilyHint": "Archivo Black", "fontWidth": "normal", "fontWeight": 900, "fontSizeRatio": 0.16, "color": "#FFFFFF", "strokeColor": "#000000", "strokeWidthRatio": 0, "backgroundColor": "#000000", "backgroundOpacity": 1, "textAlign": "center", "letterSpacingRatio": 0.05, "uppercase": true, "shadow": false, "rotation": 0, "confidence": 1 }, "geometry": { "x": 0.5, "y": 0.5, "width": 0.45, "height": 0.18, "confidence": 1 }, "timing": { "startRatio": 0.351053485, "endRatio": 0.446029173, "confidence": 1 } },
+        { "text": "MOUNTAIN", "style": "bold", "position": "center", "animation": "cut", "fillMode": "media-matte", "zIndex": 1, "sequenceMode": "exclusive", "sequenceGroupId": "mountain-spelling", "appearance": { "fontFamilyClass": "sans", "fontFamilyHint": "Archivo Black", "fontWidth": "normal", "fontWeight": 900, "fontSizeRatio": 0.16, "color": "#FFFFFF", "strokeColor": "#000000", "strokeWidthRatio": 0, "backgroundColor": "#000000", "backgroundOpacity": 1, "textAlign": "center", "letterSpacingRatio": 0.05, "uppercase": true, "shadow": false, "rotation": 0, "confidence": 1 }, "geometry": { "x": 0.5, "y": 0.5, "width": 0.56, "height": 0.18, "confidence": 1 }, "timing": { "startRatio": 0.446029173, "endRatio": 0.918476499, "confidence": 1 } }
+      ],
+      "composition": {
+        "replaceBase": true,
+        "backgroundColor": "#000000",
+        "confidence": 1,
+        "layers": [
+          { "id": "matte-m", "role": "matte-fill", "contentDescription": "Green mountain footage filling the M glyph", "zIndex": 1, "timing": { "startRatio": 0, "endRatio": 0.068071313, "confidence": 1 }, "viewport": { "x": 0, "y": 0, "width": 1, "height": 1 }, "fit": "cover", "focalPoint": { "x": 0.5, "y": 0.5 }, "matteTextOverlayIndex": 0 },
+          { "id": "matte-mo", "role": "matte-fill", "contentDescription": "Green mountain footage filling the MO glyphs", "zIndex": 1, "timing": { "startRatio": 0.068071313, "endRatio": 0.162074554, "confidence": 1 }, "viewport": { "x": 0, "y": 0, "width": 1, "height": 1 }, "fit": "cover", "focalPoint": { "x": 0.5, "y": 0.5 }, "matteTextOverlayIndex": 1 },
+          { "id": "matte-mou", "role": "matte-fill", "contentDescription": "Green mountain footage filling the MOU glyphs", "zIndex": 1, "timing": { "startRatio": 0.162074554, "endRatio": 0.257050243, "confidence": 1 }, "viewport": { "x": 0, "y": 0, "width": 1, "height": 1 }, "fit": "cover", "focalPoint": { "x": 0.5, "y": 0.5 }, "matteTextOverlayIndex": 2 },
+          { "id": "matte-mount", "role": "matte-fill", "contentDescription": "Green mountain footage filling the MOUNT glyphs", "zIndex": 1, "timing": { "startRatio": 0.257050243, "endRatio": 0.351053485, "confidence": 1 }, "viewport": { "x": 0, "y": 0, "width": 1, "height": 1 }, "fit": "cover", "focalPoint": { "x": 0.5, "y": 0.5 }, "matteTextOverlayIndex": 3 },
+          { "id": "matte-mounta", "role": "matte-fill", "contentDescription": "Green mountain footage filling the MOUNTA glyphs", "zIndex": 1, "timing": { "startRatio": 0.351053485, "endRatio": 0.446029173, "confidence": 1 }, "viewport": { "x": 0, "y": 0, "width": 1, "height": 1 }, "fit": "cover", "focalPoint": { "x": 0.5, "y": 0.5 }, "matteTextOverlayIndex": 4 },
+          { "id": "matte-mountain", "role": "matte-fill", "contentDescription": "Green mountain footage filling the MOUNTAIN glyphs", "zIndex": 1, "timing": { "startRatio": 0.446029173, "endRatio": 0.918476499, "confidence": 1 }, "viewport": { "x": 0, "y": 0, "width": 1, "height": 1 }, "fit": "cover", "focalPoint": { "x": 0.5, "y": 0.5 }, "matteTextOverlayIndex": 5 },
+          {
+            "id": "panel-tl", "role": "panel", "contentDescription": "Foggy mountain rock wall and grassy slope", "zIndex": 2,
+            "timing": { "startRatio": 0.534846029, "endRatio": 1, "confidence": 1 }, "viewport": { "x": 0, "y": 0, "width": 0.5, "height": 0.5 }, "fit": "cover", "focalPoint": { "x": 1, "y": 0.5 },
+            "motion": { "confidence": 1, "keyframes": [
+              { "timeRatio": 0, "viewport": { "x": 0, "y": 0, "width": 0.001, "height": 0.5 }, "opacity": 1, "easing": "linear" },
+              { "timeRatio": 0.023228804, "viewport": { "x": 0, "y": 0, "width": 0.139, "height": 0.5 }, "opacity": 1, "easing": "linear" },
+              { "timeRatio": 0.034843206, "viewport": { "x": 0, "y": 0, "width": 0.1735, "height": 0.5 }, "opacity": 1, "easing": "linear" },
+              { "timeRatio": 0.058072009, "viewport": { "x": 0, "y": 0, "width": 0.2135, "height": 0.5 }, "opacity": 1, "easing": "linear" },
+              { "timeRatio": 0.069686411, "viewport": { "x": 0, "y": 0, "width": 0.226, "height": 0.5 }, "opacity": 1, "easing": "linear" },
+              { "timeRatio": 0.092915215, "viewport": { "x": 0, "y": 0, "width": 0.2425, "height": 0.5 }, "opacity": 1, "easing": "linear" },
+              { "timeRatio": 0.104529617, "viewport": { "x": 0, "y": 0, "width": 0.248, "height": 0.5 }, "opacity": 1, "easing": "linear" },
+              { "timeRatio": 0.12775842, "viewport": { "x": 0, "y": 0, "width": 0.2595, "height": 0.5 }, "opacity": 1, "easing": "linear" },
+              { "timeRatio": 0.139372822, "viewport": { "x": 0, "y": 0, "width": 0.2695, "height": 0.5 }, "opacity": 1, "easing": "linear" },
+              { "timeRatio": 0.162601626, "viewport": { "x": 0, "y": 0, "width": 0.302, "height": 0.5 }, "opacity": 1, "easing": "linear" },
+              { "timeRatio": 0.174216028, "viewport": { "x": 0, "y": 0, "width": 0.331, "height": 0.5 }, "opacity": 1, "easing": "linear" },
+              { "timeRatio": 0.197444832, "viewport": { "x": 0, "y": 0, "width": 0.5, "height": 0.5 }, "opacity": 1, "easing": "linear" }
+            ] }
+          },
+          {
+            "id": "panel-tr", "role": "panel", "contentDescription": "Green mountain peak against blue sky and clouds", "zIndex": 2,
+            "timing": { "startRatio": 0.626742301, "endRatio": 1, "confidence": 1 }, "viewport": { "x": 0.5, "y": 0, "width": 0.5, "height": 0.5 }, "fit": "cover", "focalPoint": { "x": 1, "y": 0.5 },
+            "motion": { "confidence": 1, "keyframes": [
+              { "timeRatio": 0, "viewport": { "x": 0.5, "y": 0, "width": 0.001, "height": 0.5 }, "opacity": 1, "easing": "linear" },
+              { "timeRatio": 0.028947749, "viewport": { "x": 0.5, "y": 0, "width": 0.1525, "height": 0.5 }, "opacity": 1, "easing": "linear" },
+              { "timeRatio": 0.043421624, "viewport": { "x": 0.5, "y": 0, "width": 0.1815, "height": 0.5 }, "opacity": 1, "easing": "linear" },
+              { "timeRatio": 0.072369373, "viewport": { "x": 0.5, "y": 0, "width": 0.217, "height": 0.5 }, "opacity": 1, "easing": "linear" },
+              { "timeRatio": 0.101317123, "viewport": { "x": 0.5, "y": 0, "width": 0.237, "height": 0.5 }, "opacity": 1, "easing": "linear" },
+              { "timeRatio": 0.115790997, "viewport": { "x": 0.5, "y": 0, "width": 0.2445, "height": 0.5 }, "opacity": 1, "easing": "linear" },
+              { "timeRatio": 0.144738747, "viewport": { "x": 0.5, "y": 0, "width": 0.2535, "height": 0.5 }, "opacity": 1, "easing": "linear" },
+              { "timeRatio": 0.159212621, "viewport": { "x": 0.5, "y": 0, "width": 0.2595, "height": 0.5 }, "opacity": 1, "easing": "linear" },
+              { "timeRatio": 0.188160371, "viewport": { "x": 0.5, "y": 0, "width": 0.2785, "height": 0.5 }, "opacity": 1, "easing": "linear" },
+              { "timeRatio": 0.21710812, "viewport": { "x": 0.5, "y": 0, "width": 0.3165, "height": 0.5 }, "opacity": 1, "easing": "linear" },
+              { "timeRatio": 0.231581994, "viewport": { "x": 0.5, "y": 0, "width": 0.349, "height": 0.5 }, "opacity": 1, "easing": "linear" },
+              { "timeRatio": 0.260529744, "viewport": { "x": 0.5, "y": 0, "width": 0.5, "height": 0.5 }, "opacity": 1, "easing": "linear" }
+            ] }
+          },
+          {
+            "id": "panel-br", "role": "panel", "contentDescription": "Panoramic mountain ranges under clouds", "zIndex": 2,
+            "timing": { "startRatio": 0.723987034, "endRatio": 1, "confidence": 1 }, "viewport": { "x": 0.5, "y": 0.5, "width": 0.5, "height": 0.5 }, "fit": "cover", "focalPoint": { "x": 0.5, "y": 1 },
+            "motion": { "confidence": 1, "keyframes": [
+              { "timeRatio": 0, "viewport": { "x": 0.5, "y": 0.5, "width": 0.5, "height": 0.001 }, "opacity": 1, "easing": "linear" },
+              { "timeRatio": 0.039146604, "viewport": { "x": 0.5, "y": 0.5, "width": 0.5, "height": 0.17 }, "opacity": 1, "easing": "linear" },
+              { "timeRatio": 0.058719906, "viewport": { "x": 0.5, "y": 0.5, "width": 0.5, "height": 0.194 }, "opacity": 1, "easing": "linear" },
+              { "timeRatio": 0.09786651, "viewport": { "x": 0.5, "y": 0.5, "width": 0.5, "height": 0.2245 }, "opacity": 1, "easing": "linear" },
+              { "timeRatio": 0.117439812, "viewport": { "x": 0.5, "y": 0.5, "width": 0.5, "height": 0.234 }, "opacity": 1, "easing": "linear" },
+              { "timeRatio": 0.156586416, "viewport": { "x": 0.5, "y": 0.5, "width": 0.5, "height": 0.247 }, "opacity": 1, "easing": "linear" },
+              { "timeRatio": 0.176159718, "viewport": { "x": 0.5, "y": 0.5, "width": 0.5, "height": 0.2515 }, "opacity": 1, "easing": "linear" },
+              { "timeRatio": 0.215306322, "viewport": { "x": 0.5, "y": 0.5, "width": 0.5, "height": 0.2645 }, "opacity": 1, "easing": "linear" },
+              { "timeRatio": 0.234879624, "viewport": { "x": 0.5, "y": 0.5, "width": 0.5, "height": 0.2745 }, "opacity": 1, "easing": "linear" },
+              { "timeRatio": 0.274026228, "viewport": { "x": 0.5, "y": 0.5, "width": 0.5, "height": 0.31 }, "opacity": 1, "easing": "linear" },
+              { "timeRatio": 0.29359953, "viewport": { "x": 0.5, "y": 0.5, "width": 0.5, "height": 0.3395 }, "opacity": 1, "easing": "linear" },
+              { "timeRatio": 0.332746134, "viewport": { "x": 0.5, "y": 0.5, "width": 0.5, "height": 0.5 }, "opacity": 1, "easing": "linear" }
+            ] }
+          },
+          {
+            "id": "panel-bl", "role": "panel", "contentDescription": "Golden sunset glow over mountain horizon", "zIndex": 2,
+            "timing": { "startRatio": 0.815721232, "endRatio": 1, "confidence": 1 }, "viewport": { "x": 0, "y": 0.5, "width": 0.5, "height": 0.5 }, "fit": "cover", "focalPoint": { "x": 0, "y": 0.5 },
+            "motion": { "confidence": 1, "keyframes": [
+              { "timeRatio": 0, "viewport": { "x": 0.499, "y": 0.5, "width": 0.001, "height": 0.5 }, "opacity": 1, "easing": "linear" },
+              { "timeRatio": 0.058633832, "viewport": { "x": 0.3755, "y": 0.5, "width": 0.1245, "height": 0.5 }, "opacity": 1, "easing": "linear" },
+              { "timeRatio": 0.087950748, "viewport": { "x": 0.3375, "y": 0.5, "width": 0.1625, "height": 0.5 }, "opacity": 1, "easing": "linear" },
+              { "timeRatio": 0.146584579, "viewport": { "x": 0.295, "y": 0.5, "width": 0.205, "height": 0.5 }, "opacity": 1, "easing": "linear" },
+              { "timeRatio": 0.205218411, "viewport": { "x": 0.2705, "y": 0.5, "width": 0.2295, "height": 0.5 }, "opacity": 1, "easing": "linear" },
+              { "timeRatio": 0.263852243, "viewport": { "x": 0.2555, "y": 0.5, "width": 0.2445, "height": 0.5 }, "opacity": 1, "easing": "linear" },
+              { "timeRatio": 0.293169159, "viewport": { "x": 0.251, "y": 0.5, "width": 0.249, "height": 0.5 }, "opacity": 1, "easing": "linear" },
+              { "timeRatio": 0.35180299, "viewport": { "x": 0.2415, "y": 0.5, "width": 0.2585, "height": 0.5 }, "opacity": 1, "easing": "linear" },
+              { "timeRatio": 0.410436822, "viewport": { "x": 0.2235, "y": 0.5, "width": 0.2765, "height": 0.5 }, "opacity": 1, "easing": "linear" },
+              { "timeRatio": 0.469070654, "viewport": { "x": 0.1905, "y": 0.5, "width": 0.3095, "height": 0.5 }, "opacity": 1, "easing": "linear" },
+              { "timeRatio": 0.49838757, "viewport": { "x": 0.162, "y": 0.5, "width": 0.338, "height": 0.5 }, "opacity": 1, "easing": "linear" },
+              { "timeRatio": 0.557021401, "viewport": { "x": 0, "y": 0.5, "width": 0.5, "height": 0.5 }, "opacity": 1, "easing": "linear" }
+            ] }
+          }
+        ],
+        "phases": [
+          { "id": "phase-m", "label": "M media-matte state", "startRatio": 0, "endRatio": 0.068071313, "activeLayerIds": ["matte-m"], "activeTextOverlayIndices": [0], "confidence": 1 },
+          { "id": "phase-mo", "label": "MO media-matte state", "startRatio": 0.068071313, "endRatio": 0.162074554, "activeLayerIds": ["matte-mo"], "activeTextOverlayIndices": [1], "confidence": 1 },
+          { "id": "phase-mou", "label": "MOU media-matte state", "startRatio": 0.162074554, "endRatio": 0.257050243, "activeLayerIds": ["matte-mou"], "activeTextOverlayIndices": [2], "confidence": 1 },
+          { "id": "phase-mount", "label": "MOUNT media-matte state", "startRatio": 0.257050243, "endRatio": 0.351053485, "activeLayerIds": ["matte-mount"], "activeTextOverlayIndices": [3], "confidence": 1 },
+          { "id": "phase-mounta", "label": "MOUNTA media-matte state", "startRatio": 0.351053485, "endRatio": 0.446029173, "activeLayerIds": ["matte-mounta"], "activeTextOverlayIndices": [4], "confidence": 1 },
+          { "id": "phase-mountain", "label": "Complete MOUNTAIN media-matte title", "startRatio": 0.446029173, "endRatio": 0.534846029, "activeLayerIds": ["matte-mountain"], "activeTextOverlayIndices": [5], "confidence": 1 },
+          { "id": "phase-panel-tl", "label": "Top-left panel expands over and occludes title text", "startRatio": 0.534846029, "endRatio": 0.626742301, "activeLayerIds": ["matte-mountain", "panel-tl"], "activeTextOverlayIndices": [5], "confidence": 1 },
+          { "id": "phase-panel-tr", "label": "Top-right panel expands over and occludes title text", "startRatio": 0.626742301, "endRatio": 0.723987034, "activeLayerIds": ["matte-mountain", "panel-tl", "panel-tr"], "activeTextOverlayIndices": [5], "confidence": 1 },
+          { "id": "phase-panel-br", "label": "Bottom-right panel expands over and occludes title text", "startRatio": 0.723987034, "endRatio": 0.815721232, "activeLayerIds": ["matte-mountain", "panel-tl", "panel-tr", "panel-br"], "activeTextOverlayIndices": [5], "confidence": 1 },
+          { "id": "phase-panel-bl", "label": "Bottom-left panel expands over and fully occludes title text", "startRatio": 0.815721232, "endRatio": 0.918476499, "activeLayerIds": ["matte-mountain", "panel-tl", "panel-tr", "panel-br", "panel-bl"], "activeTextOverlayIndices": [5], "confidence": 1 },
+          { "id": "phase-grid-hold", "label": "Completed 2x2 grid holds", "startRatio": 0.918476499, "endRatio": 1, "activeLayerIds": ["panel-tl", "panel-tr", "panel-br", "panel-bl"], "activeTextOverlayIndices": [], "confidence": 1 }
+        ]
+      },
+      "onBeat": true,
+      "speed": 1
+    }
+  ],
+  "audioAnalysis": {
+    "bpm": 105,
+    "beats": [],
+    "impacts": [],
+    "energyCurve": [],
+    "mood": "Energetic",
+    "genre": "Dance Pop"
+  },
+  "overallStyle": {
+    "colorGrading": "High-saturation mountain footage over black",
+    "pacing": "slow",
+    "mood": "Energetic",
+    "genre": "Dance Pop"
+  },
+  "analysisWarnings": [],
+  "createdAt": "2026-08-14T00:00:00.000Z"
+}

@@ -1,0 +1,96 @@
+{
+  "schemaVersion": 1,
+  "id": "mountain-grid-v1",
+  "name": "Media-matte title with sequential anchored 2x2 panel reveals",
+  "reference": {
+    "file": "reference.mp4",
+    "sha256": "ece56a63cb10cec16bcee8d02b2a3fe8403d656c317405eccd64a00128954d77",
+    "sourceUrlContains": ["Db3wQtRhrj0", "mountain-grid-v1"],
+    "width": 1916,
+    "height": 1078,
+    "fps": 30,
+    "visualDuration": 6.166666667,
+    "containerDuration": 6.2
+  },
+  "segment": {
+    "index": 0,
+    "startTime": 0,
+    "duration": 6.17,
+    "backgroundColor": "#000000"
+  },
+  "typography": {
+    "states": [
+      { "text": "M", "startTime": 0, "endTime": 0.42 },
+      { "text": "MO", "startTime": 0.42, "endTime": 1 },
+      { "text": "MOU", "startTime": 1, "endTime": 1.586 },
+      { "text": "MOUNT", "startTime": 1.586, "endTime": 2.166 },
+      { "text": "MOUNTA", "startTime": 2.166, "endTime": 2.752 },
+      { "text": "MOUNTAIN", "startTime": 2.752, "endTime": 5.667 }
+    ],
+    "fillMode": "media-matte",
+    "fontFamilyHint": "Archivo Black",
+    "fontWeight": 900,
+    "fontSizeRatio": 0.16,
+    "strokeWidthRatio": 0,
+    "geometry": { "x": 0.5, "y": 0.5, "width": 0.512, "height": 0.18 },
+    "zIndex": 1
+  },
+  "panels": [
+    {
+      "id": "panel-tl",
+      "viewport": { "x": 0, "y": 0, "width": 0.5, "height": 0.5 },
+      "zeroTime": 3.3,
+      "fullTime": 3.867,
+      "direction": "left-to-right",
+      "focalPoint": { "x": 1, "y": 0.5 },
+      "zAboveText": true,
+      "progress": [0, 0.146, 0.278, 0.347, 0.394, 0.427, 0.452, 0.471, 0.485, 0.496, 0.505, 0.519, 0.539, 0.566, 0.604, 0.662, 0.762, 1]
+    },
+    {
+      "id": "panel-tr",
+      "viewport": { "x": 0.5, "y": 0, "width": 0.5, "height": 0.5 },
+      "zeroTime": 3.867,
+      "fullTime": 4.467,
+      "direction": "left-to-right",
+      "focalPoint": { "x": 1, "y": 0.5 },
+      "zAboveText": true,
+      "progress": [0, 0.211, 0.305, 0.363, 0.403, 0.434, 0.457, 0.474, 0.489, 0.499, 0.507, 0.519, 0.534, 0.557, 0.589, 0.633, 0.698, 0.83, 1]
+    },
+    {
+      "id": "panel-br",
+      "viewport": { "x": 0.5, "y": 0.5, "width": 0.5, "height": 0.5 },
+      "zeroTime": 4.467,
+      "fullTime": 5.033,
+      "direction": "top-to-bottom",
+      "focalPoint": { "x": 0.5, "y": 1 },
+      "zAboveText": true,
+      "progress": [0, 0.269, 0.34, 0.388, 0.423, 0.449, 0.468, 0.482, 0.494, 0.503, 0.514, 0.529, 0.549, 0.579, 0.62, 0.679, 0.788, 1]
+    },
+    {
+      "id": "panel-bl",
+      "viewport": { "x": 0, "y": 0.5, "width": 0.5, "height": 0.5 },
+      "zeroTime": 5.033,
+      "fullTime": 5.667,
+      "direction": "right-to-left",
+      "focalPoint": { "x": 0, "y": 0.5 },
+      "zAboveText": true,
+      "progress": [0, 0.078, 0.249, 0.325, 0.375, 0.41, 0.438, 0.459, 0.476, 0.489, 0.498, 0.506, 0.517, 0.532, 0.553, 0.58, 0.619, 0.676, 0.773, 1]
+    }
+  ],
+  "thresholds": {
+    "eventTimingFrames": 1,
+    "textTimingFrames": 1,
+    "viewportIoU": 0.98,
+    "revealProgressMae": 0.03,
+    "focalPointTolerance": 0.15,
+    "requireExactTextStates": true,
+    "requireAllDirections": true,
+    "requireAllZRelations": true,
+    "requireMonotonicVisibility": true
+  },
+  "notes": [
+    "Progress arrays are frame-edge measurements from the retained 30 fps reference, including the zero and full frames.",
+    "The characteristic curve is fast at both ends and hesitates near 50 percent; it is not a conventional ease-in-out.",
+    "Provider scoring must be performed before deterministic reconciliation. Production scoring may be repeated after reconciliation and reported separately."
+  ]
+}
