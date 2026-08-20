@@ -5,9 +5,7 @@ multi-track editing interface, a hardware WebGPU preview compositor, FFmpeg
 export, and an AI Creative Director that can plan and perform structured edits.
 
 The project is an actively developed pnpm monorepo. Its first retained
-reference-recreation benchmark scores 99/100; see
-[`MILESTONES.md`](MILESTONES.md) for the exact scope and evidence behind that
-result.
+reference-recreation benchmark scores 99/100.
 
 ## Demo
 
@@ -255,28 +253,6 @@ before dependency cleanup:
 pnpm clean
 ```
 
-### Important before the first GitHub push
-
-This repository's Python virtual environment was accidentally committed in an
-earlier local commit. `.gitignore` now prevents that from happening again, but
-deleting the directory does not remove its large binaries from existing Git
-history. GitHub will reject individual objects over its file-size limit.
-
-Before publishing this existing history, make a backup and remove these paths
-from every commit with `git filter-repo` (history rewriting changes commit IDs):
-
-```bash
-git filter-repo \
-  --path apps/api/scripts/reference-cv/.venv \
-  --path apps/api/scripts/reference-cv/.cache \
-  --invert-paths
-```
-
-If the repository has already been shared, coordinate the rewrite first because
-everyone will need to re-clone or reset to the rewritten history. A brand-new
-Git history created after the dependency directories are deleted is another
-option.
-
 ## Repository layout
 
 ```text
@@ -340,18 +316,3 @@ orientation metadata. Source ranking can prefer or require delivery-compatible
 portrait, landscape, or square footage. Reference scenes retain independent
 layers, z-order, normalized viewports, visibility phases, mattes, event-timed
 typography, and measured motion instead of flattening the result into a video.
-
-## Further documentation
-
-- [`PERFORMANCE_AND_EXPORT.md`](PERFORMANCE_AND_EXPORT.md) — renderer
-  architecture, export contracts, and performance roadmap
-- [`EDITOR_CAPABILITY_INVENTORY.md`](EDITOR_CAPABILITY_INVENTORY.md) — complete
-  engine capability ledger and known gaps
-- [`AGENTIC_INTELLIGENCE_INVENTORY.md`](AGENTIC_INTELLIGENCE_INVENTORY.md) — AI
-  understand/plan/edit/critique architecture
-- [`AGENT_HARNESS.md`](AGENT_HARNESS.md) — agent tools, events, and persistence
-- [`MILESTONES.md`](MILESTONES.md) — evidence-backed product milestones
-- [`benchmarks/reference-analysis/README.md`](benchmarks/reference-analysis/README.md)
-  — provider-neutral fixtures and scoring
-
-`CHECKPOINT.md` is a gitignored local progress tracker.
