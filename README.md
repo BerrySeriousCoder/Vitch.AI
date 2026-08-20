@@ -11,13 +11,20 @@ result.
 
 ## Demo
 
-[![Watch Tempo recreate a reference edit with different source footage](docs/assets/tempo-agentic-video-editor-demo-poster.jpg)](docs/assets/tempo-agentic-video-editor-demo.mp4?raw=1)
+https://github.com/user-attachments/assets/817a5f31-97e3-4506-ad3a-423c7c859e41
 
-**[▶ Play the 16-second reference-versus-recreation demo](docs/assets/tempo-agentic-video-editor-demo.mp4?raw=1)**
+**[▶ Open the 16-second demo directly](https://github.com/user-attachments/assets/817a5f31-97e3-4506-ad3a-423c7c859e41)**
 
 The left side is the reference edit; the right side is Tempo's recreation using
 different source footage. The resulting edit remains a normal, editable Tempo
 timeline rather than a flattened generated video.
+
+## Inside the editor
+
+![Tempo editor with its media bin, WebGPU preview, AI inspector, and multi-track timeline](docs/assets/editorlook.png)
+
+Tempo keeps the source media, AI-generated cuts, captions, effects, audio, and
+agent activity together in an editable nonlinear timeline.
 
 ## What Tempo can do
 
