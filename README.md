@@ -148,9 +148,10 @@ REFERENCE_CV_DEVICE=auto
 ```
 
 `REFERENCE_CV_MODE=auto` safely falls back to Tempo's built-in analyzer if the
-worker is unavailable. The default installer uses CPU PaddlePaddle to avoid a
-large CUDA dependency bundle. GPU OCR requires a compatible NVIDIA driver and
-a separately installed CUDA-enabled PaddlePaddle wheel.
+worker is unavailable. Setup automatically installs CUDA-enabled PaddlePaddle
+when an NVIDIA GPU is visible and otherwise installs the CPU wheel. Use
+`--cv-cpu` or `--cv-gpu` to override detection. The GPU wheel uses Paddle's
+CUDA 12.6 package channel and requires a compatible NVIDIA driver.
 
 See [`.env.example`](.env.example) for model overrides, S3/R2 storage,
 authorized yt-dlp cookies, browser paths, and other optional settings.

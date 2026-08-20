@@ -4,7 +4,7 @@ import { downloadReference, type DownloadResult } from "./download.service.js";
 import { detectScenes, type SceneSegment } from "./scene-detection.service.js";
 import { analyzeAudio } from "./audio-analysis.service.js";
 import { analyzeVisuals } from "./vision-analysis.service.js";
-import { analyzeWholeVideo } from "./video-analysis.service.js";
+import { analyzeWholeVideo, type WholeVideoAnalysisCheckpoint } from "./video-analysis.service.js";
 import { analyzeLocalVisualEvidence } from "./local-visual-evidence.service.js";
 import {
   reconcileBlueprintSemantics,
@@ -31,7 +31,11 @@ export type BlueprintProgressEvent =
  */
 export async function* generateBlueprint(
   url: string,
-  options: { signal?: AbortSignal } = {}
+  options: {
+    signal?: AbortSignal;
+    analysisCheckpoint?: WholeVideoAnalysisCheckpoint;
+    onAnalysisCheckpoint?: (checkpoint: WholeVideoAnalysisCheckpoint) => void | Promise<void>;
+  } = {}
 ): AsyncGenerator<BlueprintProgressEvent | {
   step: "complete";
   blueprint: EditBlueprint;
@@ -67,6 +71,10 @@ export async function* generateBlueprint(
     if (options.signal?.aborted) throw new DOMException("Reference analysis cancelled", "AbortError");
 
     yield { step: "analyzing_audio", detail: `Found ${scenes.length} scenes, BPM: ${audioAnalysis.bpm}` };
+    yield {
+      step: "analyzing_visuals",
+      detail: "Measuring local motion, geometry, and text with OpenCV/PaddleOCR...",
+    };
 
     const localEvidence = await analyzeLocalVisualEvidence(
       download.videoPath,
@@ -93,13 +101,22 @@ export async function* generateBlueprint(
         scenes,
         referenceTranscript,
         audioAnalysis,
-        { ...options, evidence: localEvidence }
+        {
+          signal: options.signal,
+          evidence: localEvidence,
+          checkpoint: options.analysisCheckpoint,
+          onCheckpoint: options.onAnalysisCheckpoint,
+        }
       );
       visualData = wholeVideo.scenes;
       analysisUsage = wholeVideo.usage;
     } catch (err: any) {
       if (err?.name === "AbortError" || options.signal?.aborted) throw err;
       if (err?.analysisUsage) analysisUsage = err.analysisUsage;
+      // A complete native-video response that failed blueprint invariants must
+      // remain on its checkpointed/focused repair path. Sampled stills contain
+      // less temporal evidence and cannot repair dense caption sequences.
+      if (err?.code === "REFERENCE_ANALYSIS_INCOMPLETE") throw err;
       const warning = `Full-detail video analysis failed; starting sampled-frame fallback: ${err?.message || "unknown error"}`;
       warnings.push(warning);
       usedSampledFallback = true;

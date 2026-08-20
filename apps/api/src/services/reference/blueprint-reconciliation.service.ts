@@ -42,6 +42,7 @@ const DEGRADED_MEASUREMENT_CODES = new Set([
   "GRID_FINAL_OCCUPANCY_INCOMPLETE",
   "VISIBLE_LAYER_COUNT_MISMATCH",
   "INTERNAL_EVENTS_UNMODELED",
+  "OCR_TEXT_COVERAGE_GAP",
 ]);
 
 const REPAIRABLE_SEMANTIC_CODES = new Set([
@@ -170,6 +171,119 @@ function normalizedOverlayText(value: string): string {
   return value.trim().replace(/\s+/g, " ").toLocaleLowerCase();
 }
 
+function comparableText(value: string): string {
+  return value.toLocaleLowerCase().replace(/[^\p{L}\p{N}]+/gu, "");
+}
+
+function textCorresponds(left: string, right: string): boolean {
+  const a = comparableText(left);
+  const b = comparableText(right);
+  if (!a || !b) return false;
+  return a === b || (Math.min(a.length, b.length) >= 3 && (a.includes(b) || b.includes(a)));
+}
+
+/**
+ * OCR often joins adjacent words, so a short blueprint word may legitimately
+ * correspond to a longer measured token. The reverse is unsafe for coverage:
+ * one invented sentence must not satisfy several independently measured words.
+ */
+function textCoversObservation(overlayText: string, observationText: string): boolean {
+  const overlay = comparableText(overlayText);
+  const observation = comparableText(observationText);
+  if (!overlay || !observation) return false;
+  if (overlay === observation) return true;
+  if (Math.min(overlay.length, observation.length) < 3) return false;
+  if (observation.includes(overlay)) return overlay.length / observation.length >= 0.42;
+  if (overlay.includes(observation)) return observation.length / overlay.length >= 0.72;
+  return false;
+}
+
+function rectDistance(
+  geometry: NonNullable<BlueprintSegment["textOverlays"][number]["geometry"]>,
+  rect: { x: number; y: number; width: number; height: number },
+  interpretation: "center" | "origin"
+): number {
+  const x = interpretation === "origin" ? geometry.x : geometry.x - (geometry.width || rect.width) / 2;
+  const y = interpretation === "origin" ? geometry.y : geometry.y - (geometry.height || rect.height) / 2;
+  return Math.abs(x - rect.x) + Math.abs(y - rect.y) +
+    Math.abs((geometry.width || rect.width) - rect.width) +
+    Math.abs((geometry.height || rect.height) - rect.height);
+}
+
+/**
+ * PaddleOCR rectangles are top-left boxes while Tempo layouts use centres.
+ * Resolve that boundary with measured pixels instead of guessing from text
+ * shape. This also handles independent words, which the old cumulative-word
+ * heuristic could not recognize.
+ */
+function normalizeMeasuredTextGeometry(
+  overlays: BlueprintSegment["textOverlays"],
+  evidence: ReturnType<typeof evidenceFor>,
+  segmentIndex: number,
+  warnings: string[]
+): BlueprintSegment["textOverlays"] {
+  const observations = evidence?.textObservations;
+  if (!observations?.length) return overlays;
+  return overlays.map((overlay, overlayIndex) => {
+    const geometry = overlay.geometry;
+    if (!geometry?.width || !geometry.height) return overlay;
+    const wanted = comparableText(overlay.text);
+    const candidates = observations.filter((observation) =>
+      observation.confidence >= 0.65 && comparableText(observation.text) === wanted
+    );
+    if (!candidates.length) return overlay;
+    const observation = candidates.reduce((best, candidate) => {
+      const candidateDelta = rectDistance(geometry, candidate.rect, "origin");
+      const bestDelta = rectDistance(geometry, best.rect, "origin");
+      return candidateDelta < bestDelta ? candidate : best;
+    });
+    const originDistance = rectDistance(geometry, observation.rect, "origin");
+    const centerDistance = rectDistance(geometry, observation.rect, "center");
+    if (originDistance + 0.025 >= centerDistance) return overlay;
+    warnings.push(
+      `NORMALIZED_TEXT_BOX_ORIGIN: scene ${segmentIndex} text ${overlayIndex} converted measured OCR geometry to centre coordinates`
+    );
+    return {
+      ...overlay,
+      geometry: {
+        ...geometry,
+        x: Math.max(0, Math.min(1, geometry.x + geometry.width / 2)),
+        y: Math.max(0, Math.min(1, geometry.y + geometry.height / 2)),
+      },
+    };
+  });
+}
+
+function overlayVisibleAt(segment: BlueprintSegment, overlayIndex: number, time: number): boolean {
+  const overlay = segment.textOverlays[overlayIndex];
+  if (!overlay) return false;
+  const ratio = Math.max(0, Math.min(1, (time - segment.startTime) / Math.max(0.001, segment.duration)));
+  const start = overlay.timing?.startRatio ?? 0;
+  const end = overlay.timing?.endRatio ?? 1;
+  if (ratio < start - 0.04 || ratio > end + 0.04) return false;
+  const phases = segment.composition?.phases;
+  if (!phases?.length) return true;
+  return phases.some((phase) =>
+    phase.activeTextOverlayIndices.includes(overlayIndex) &&
+    ratio >= phase.startRatio - 0.04 && ratio <= phase.endRatio + 0.04
+  );
+}
+
+function overlapRatio(
+  left: { x: number; y: number; width: number; height: number },
+  right: { x: number; y: number; width: number; height: number }
+): number {
+  const width = Math.max(0, Math.min(left.x + left.width, right.x + right.width) - Math.max(left.x, right.x));
+  const height = Math.max(0, Math.min(left.y + left.height, right.y + right.height) - Math.max(left.y, right.y));
+  return width * height / Math.max(0.000001, Math.min(left.width * left.height, right.width * right.height));
+}
+
+function centeredRect(geometry: NonNullable<BlueprintSegment["textOverlays"][number]["geometry"]>) {
+  const width = geometry.width || 0;
+  const height = geometry.height || 0;
+  return { x: geometry.x - width / 2, y: geometry.y - height / 2, width, height };
+}
+
 /**
  * A title visible at the end of one scene and the start of the next is one
  * editorial object even when two provider chunks described it independently.
@@ -272,6 +386,33 @@ export function validateBlueprintIntegrity(
         overlayIndex,
       });
     }
+    const exclusiveGroups = new Map<string, Array<{ overlayIndex: number; start: number; end: number }>>();
+    for (let overlayIndex = 0; overlayIndex < segment.textOverlays.length; overlayIndex++) {
+      const overlay = segment.textOverlays[overlayIndex]!;
+      if (overlay.sequenceMode !== "exclusive") continue;
+      const group = overlay.sequenceGroupId || `z:${overlay.zIndex ?? 0}`;
+      const entries = exclusiveGroups.get(group) || [];
+      entries.push({
+        overlayIndex,
+        start: overlay.timing?.startRatio ?? 0,
+        end: overlay.timing?.endRatio ?? 1,
+      });
+      exclusiveGroups.set(group, entries);
+    }
+    for (const [group, entries] of exclusiveGroups) {
+      const ordered = entries.sort((left, right) => left.start - right.start || left.end - right.end);
+      for (let index = 1; index < ordered.length; index++) {
+        const previous = ordered[index - 1]!;
+        const current = ordered[index]!;
+        if (current.start >= previous.end - 0.015) continue;
+        push(segment, {
+          severity: "error",
+          code: "EXCLUSIVE_TEXT_TIMING_OVERLAP",
+          message: `Exclusive text group ${group} overlaps between overlays ${previous.overlayIndex} and ${current.overlayIndex}`,
+          overlayIndex: current.overlayIndex,
+        });
+      }
+    }
     for (const layer of composition?.layers || []) {
       if (layer.role === "matte-fill" && layer.matteTextOverlayIndex === undefined) {
         push(segment, {
@@ -345,6 +486,72 @@ export function validateBlueprintIntegrity(
       }
     }
     const local = evidenceFor(blueprint.analysisEvidence, segment.index);
+    if (composition?.phases?.length && segment.textOverlays.length) {
+      for (let overlayIndex = 0; overlayIndex < segment.textOverlays.length; overlayIndex++) {
+        const overlay = segment.textOverlays[overlayIndex]!;
+        const activePhases = composition.phases.filter((phase) =>
+          phase.activeTextOverlayIndices.includes(overlayIndex)
+        );
+        if (!activePhases.length) push(segment, {
+          severity: "error",
+          code: "TEXT_NEVER_ACTIVE",
+          message: `Text ${overlayIndex} (“${overlay.text}”) is excluded from every composition phase and would compile permanently transparent`,
+          overlayIndex,
+        });
+      }
+    }
+    if (local?.textObservations?.length) {
+      const uncovered = local.textObservations.filter((observation) => {
+        if (observation.confidence < 0.72 || comparableText(observation.text).length < 1) return false;
+        return !segment.textOverlays.some((overlay, overlayIndex) =>
+          textCoversObservation(overlay.text, observation.text) &&
+          overlayVisibleAt(segment, overlayIndex, observation.time)
+        );
+      }).sort((left, right) => left.time - right.time);
+      const groups: typeof uncovered[] = [];
+      for (const observation of uncovered) {
+        const current = groups.at(-1);
+        if (!current?.length || observation.time - current.at(-1)!.time > 0.7) groups.push([observation]);
+        else current.push(observation);
+      }
+      const material = groups.filter((group) =>
+        group.length >= 3 || (group.length >= 2 && group.at(-1)!.time - group[0]!.time >= 0.18)
+      );
+      if (material.length) {
+        const sample = material.flat().slice(0, 8)
+          .map((observation) => `${observation.time.toFixed(2)}s “${observation.text}”`).join(", ");
+        push(segment, {
+          severity: "error",
+          code: "OCR_TEXT_COVERAGE_GAP",
+          message: `Measured on-screen text is absent or hidden in the blueprint: ${sample}`,
+        });
+      }
+      for (let leftIndex = 0; leftIndex < segment.textOverlays.length; leftIndex++) {
+        const leftOverlay = segment.textOverlays[leftIndex]!;
+        if (!leftOverlay.geometry?.width || !leftOverlay.geometry.height) continue;
+        for (let rightIndex = leftIndex + 1; rightIndex < segment.textOverlays.length; rightIndex++) {
+          const rightOverlay = segment.textOverlays[rightIndex]!;
+          if (!rightOverlay.geometry?.width || !rightOverlay.geometry.height) continue;
+          const leftObservation = local.textObservations.find((observation) =>
+            textCorresponds(observation.text, leftOverlay.text) &&
+            overlayVisibleAt(segment, leftIndex, observation.time)
+          );
+          const rightObservation = local.textObservations.find((observation) =>
+            textCorresponds(observation.text, rightOverlay.text) &&
+            overlayVisibleAt(segment, rightIndex, observation.time) &&
+            (!leftObservation || Math.abs(observation.time - leftObservation.time) <= 0.5)
+          );
+          if (!leftObservation || !rightObservation) continue;
+          const plannedOverlap = overlapRatio(centeredRect(leftOverlay.geometry), centeredRect(rightOverlay.geometry));
+          const measuredOverlap = overlapRatio(leftObservation.rect, rightObservation.rect);
+          if (plannedOverlap > 0.35 && plannedOverlap > measuredOverlap + 0.2) push(segment, {
+            severity: "error",
+            code: "TEXT_LAYOUT_COLLISION",
+            message: `Text ${leftIndex} and ${rightIndex} overlap ${(plannedOverlap * 100).toFixed(0)}% in the blueprint versus ${(measuredOverlap * 100).toFixed(0)}% in measured reference boxes`,
+          });
+        }
+      }
+    }
     if (looksLikeGrid(segment) && !composition?.phases?.length) {
       push(segment, {
         severity: "error",
@@ -403,10 +610,17 @@ export function reconcileBlueprintSemantics(
   const warnings: string[] = [];
   const segments = blueprint.segments.map((segment) => {
     const composition = segment.composition;
-    const textOverlays = normalizeCumulativeTextGeometry(segment.textOverlays.map((overlay) => ({
+    const clonedTextOverlays = segment.textOverlays.map((overlay) => ({
       ...overlay,
       ...(overlay.timing ? { timing: { ...overlay.timing } } : {}),
-    })), segment.index, warnings);
+    }));
+    const measuredTextOverlays = normalizeMeasuredTextGeometry(
+      clonedTextOverlays,
+      evidenceFor(blueprint.analysisEvidence, segment.index),
+      segment.index,
+      warnings
+    );
+    const textOverlays = normalizeCumulativeTextGeometry(measuredTextOverlays, segment.index, warnings);
     const referenceWidth = Math.max(1, blueprint.referenceWidth || 16);
     const referenceHeight = Math.max(1, blueprint.referenceHeight || 9);
     for (let overlayIndex = 0; overlayIndex < textOverlays.length; overlayIndex++) {
@@ -417,7 +631,7 @@ export function reconcileBlueprintSemantics(
       const hintedFont = GOOGLE_FONT_CATALOG.find((font) => normalizedFontFamily(font.family) === hint);
       const hintedWidth = hintedFont?.width || "normal";
       let fontFamilyHint = overlay.appearance.fontFamilyHint;
-      if (hintedFont && hintedWidth !== measuredWidth) {
+      if (hintedFont && hintedWidth !== measuredWidth && (overlay.appearance.confidence ?? 0) < 0.75) {
         fontFamilyHint = matchGoogleFontFamily({
           category: overlay.appearance.fontFamilyClass,
           width: measuredWidth,
@@ -531,9 +745,13 @@ export function reconcileBlueprintSemantics(
         const overlay = textOverlays[overlayIndex];
         if (!overlay) continue;
         const timing = overlay.timing || { startRatio: 0, endRatio: 1 };
+        if (overlay.sequenceMode === "exclusive") continue;
         overlay.timing = {
           ...timing,
-          startRatio: Math.min(timing.startRatio, phase.startRatio),
+          // Phase membership may keep a persistent title alive, but must not
+          // erase its measured entrance. Exclusive captions are fully authored
+          // by their own intervals and are intentionally left untouched above.
+          startRatio: timing.startRatio,
           endRatio: Math.max(timing.endRatio, phase.endRatio),
         };
       }

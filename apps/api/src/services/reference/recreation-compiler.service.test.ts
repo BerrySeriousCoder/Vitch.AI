@@ -657,4 +657,55 @@ describe("Edit Like This recreation compiler", () => {
     expect(titleScale).toMatchObject({ time: 2.5, easing: "hold" });
     expect(matte.keyframes.filter((keyframe) => keyframe.property === "opacity" && keyframe.value === 0)).toHaveLength(0);
   });
+
+  it("keeps exclusive word captions at authored times inside a broad composition phase", async () => {
+    const exclusive = blueprint({
+      totalDuration: 4,
+      segments: [{
+        ...blueprint().segments[0]!,
+        duration: 4,
+        textOverlays: [
+          {
+            text: "first", style: "bold", position: "center", animation: "static",
+            timing: { startRatio: 0.1, endRatio: 0.2 }, sequenceMode: "exclusive", sequenceGroupId: "captions",
+            appearance: { fontSizeRatio: 0.08 }, zIndex: 10,
+          },
+          {
+            text: "second", style: "bold", position: "center", animation: "static",
+            timing: { startRatio: 0.25, endRatio: 0.35 }, sequenceMode: "exclusive", sequenceGroupId: "captions",
+            appearance: { fontSizeRatio: 0.08 }, zIndex: 10,
+          },
+        ],
+        composition: {
+          replaceBase: false,
+          layers: [],
+          phases: [{
+            id: "broad", label: "caption scene", startRatio: 0, endRatio: 1,
+            activeLayerIds: [], activeTextOverlayIndices: [0, 1],
+          }],
+        },
+      }],
+    });
+    const draft = await compileRecreationDraft(
+      { id: "project-1", name: "Exclusive captions", settings, tracks: [] },
+      [media("asset-a")],
+      exclusive,
+      [{ segmentIndex: 0, assetId: "asset-a", assetName: "asset-a.mp4", inPoint: 0, duration: 4, confidence: 1 }]
+    );
+    const text = draft.state.tracks.flatMap((track) => track.clips)
+      .filter((clip) => clip.referenceEditBinding?.kind === "text-overlay")
+      .sort((left, right) => left.startTime - right.startTime);
+    expect(text).toHaveLength(2);
+    expect(text[0]!.startTime).toBeCloseTo(0.4);
+    expect(text[0]!.duration).toBeCloseTo(0.4);
+    expect(text[1]!.startTime).toBeCloseTo(1);
+    expect(text[1]!.duration).toBeCloseTo(0.4);
+
+    text[1]!.startTime = text[0]!.startTime;
+    const report = validateRecreationConformance(draft.state, exclusive, draft.manifest);
+    expect(report.ok).toBe(false);
+    expect(report.issues).toEqual(expect.arrayContaining([
+      expect.objectContaining({ severity: "error", code: "timeline_overlap_without_transition" }),
+    ]));
+  });
 });

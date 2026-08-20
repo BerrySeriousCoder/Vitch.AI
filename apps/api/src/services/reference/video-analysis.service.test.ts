@@ -188,6 +188,33 @@ describe("whole-video reference analysis helpers", () => {
     });
   });
 
+  it("preserves dense caption sequences and their phase indices beyond 24 states", () => {
+    const rawOverlays = Array.from({ length: 40 }, (_, index) => ({
+      text: `word-${index}`,
+      style: "bold",
+      position: "center",
+      animation: "none",
+      timing: { startRatio: index / 40, endRatio: (index + 1) / 40 },
+    }));
+    const scene = sanitizeSegmentData({
+      textOverlays: rawOverlays,
+      composition: {
+        replaceBase: true,
+        layers: [{
+          id: "background", role: "background", contentDescription: "plate", zIndex: 0,
+          timing: { startRatio: 0, endRatio: 1 }, viewport: { x: 0, y: 0, width: 1, height: 1 }, fit: "cover",
+        }],
+        phases: [{
+          id: "captions", label: "dense captions", startRatio: 0, endRatio: 1,
+          activeLayerIds: ["background"], activeTextOverlayIndices: Array.from({ length: 40 }, (_, index) => index),
+        }],
+      },
+    });
+    expect(scene.textOverlays).toHaveLength(40);
+    expect(scene.composition?.phases?.[0]?.activeTextOverlayIndices).toHaveLength(40);
+    expect(scene.composition?.phases?.[0]?.activeTextOverlayIndices.at(-1)).toBe(39);
+  });
+
   it("reports token and transcription estimates separately", () => {
     const usage = estimateReferenceUsage({
       promptTokenCount: 17_500,

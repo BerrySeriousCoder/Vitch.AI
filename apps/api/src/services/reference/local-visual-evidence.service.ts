@@ -19,7 +19,7 @@ const HEIGHT = 108;
 const DEFAULT_FPS = 12;
 const MAX_SECONDS = 180;
 
-interface OpenCvWorkerOutput {
+export interface OpenCvWorkerOutput {
   provider: "tempo-opencv-paddleocr";
   analysisFps: number;
   width: number;
@@ -225,6 +225,32 @@ function isWorkerOutput(value: unknown): value is OpenCvWorkerOutput {
     Array.isArray(output.frames);
 }
 
+/**
+ * Parse the worker protocol defensively. The worker now isolates native
+ * library logs at the file-descriptor level, but accepting a final valid JSON
+ * line keeps future Paddle/OpenCV logging regressions from aborting a run.
+ */
+export function parseOpenCvWorkerOutput(stdout: string): OpenCvWorkerOutput {
+  const trimmed = stdout.trim();
+  const candidates = [trimmed];
+  const marker = '{"provider":"tempo-opencv-paddleocr"';
+  const markerIndex = trimmed.lastIndexOf(marker);
+  if (markerIndex > 0) candidates.push(trimmed.slice(markerIndex));
+  const lastLine = trimmed.split(/\r?\n/).reverse().find((line: string) => line.trim().startsWith("{"));
+  if (lastLine && lastLine !== trimmed) candidates.push(lastLine.trim());
+
+  for (const candidate of candidates) {
+    try {
+      const parsed: unknown = JSON.parse(candidate);
+      if (isWorkerOutput(parsed)) return parsed;
+    } catch {
+      // Try the next bounded candidate before reporting a protocol failure.
+    }
+  }
+  const preview = trimmed.replace(/\s+/g, " ").slice(0, 160);
+  throw new Error(`OpenCV worker returned invalid JSON${preview ? `: ${preview}` : ""}`);
+}
+
 async function analyzeWithOpenCv(
   videoPath: string,
   scenes: SceneSegment[],
@@ -267,8 +293,7 @@ async function analyzeWithOpenCv(
       PADDLE_PDX_CACHE_HOME: path.resolve(process.cwd(), "apps/api/scripts/reference-cv/.cache"),
     },
   });
-  const parsed: unknown = JSON.parse(stdout);
-  if (!isWorkerOutput(parsed)) throw new Error("OpenCV worker returned an invalid evidence contract");
+  const parsed = parseOpenCvWorkerOutput(stdout);
   const warnings: string[] = [];
   if (duration > MAX_SECONDS) {
     warnings.push(`Local visual evidence was capped at ${MAX_SECONDS}s; later scenes use model evidence only`);

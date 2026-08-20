@@ -25,6 +25,36 @@ except Exception:
     sys.exit(42)
 
 
+_PROTOCOL_STDOUT_FD: int | None = None
+
+
+def isolate_protocol_stdout() -> None:
+    """Reserve the original stdout pipe and send all library chatter to stderr.
+
+    Paddle/oneDNN writes some diagnostics directly to file descriptor 1, so
+    contextlib.redirect_stdout cannot keep the worker protocol JSON-only.
+    Duplicating the descriptor before redirecting it lets emit_protocol_json()
+    bypass Python and native-library stdout pollution alike.
+    """
+    global _PROTOCOL_STDOUT_FD
+    if _PROTOCOL_STDOUT_FD is not None:
+        return
+    sys.stdout.flush()
+    sys.stderr.flush()
+    _PROTOCOL_STDOUT_FD = os.dup(sys.stdout.fileno())
+    os.dup2(sys.stderr.fileno(), sys.stdout.fileno())
+
+
+def emit_protocol_json(payload: dict[str, Any]) -> None:
+    encoded = (json.dumps(payload, separators=(",", ":")) + "\n").encode("utf-8")
+    if _PROTOCOL_STDOUT_FD is None:
+        raise RuntimeError("Protocol stdout was not initialized")
+    pending = memoryview(encoded)
+    while pending:
+        written = os.write(_PROTOCOL_STDOUT_FD, pending)
+        pending = pending[written:]
+
+
 def rect(x: int, y: int, width: int, height: int, frame_width: int, frame_height: int) -> dict[str, float]:
     return {
         "x": x / frame_width,
@@ -130,12 +160,30 @@ def ocr_frame(engine: Any, frame: Any, time: float) -> list[dict[str, Any]]:
 
 def main() -> int:
     parser = argparse.ArgumentParser()
-    parser.add_argument("video")
+    parser.add_argument("video", nargs="?")
     parser.add_argument("--fps", type=float, default=12)
     parser.add_argument("--duration", type=float, default=180)
     parser.add_argument("--ocr", action="store_true")
     parser.add_argument("--device", choices=("auto", "cpu", "gpu"), default="auto")
+    parser.add_argument("--protocol-self-test", action="store_true", help=argparse.SUPPRESS)
     args = parser.parse_args()
+
+    if args.protocol_self_test:
+        # Simulate the native oneDNN line which previously corrupted stdout.
+        os.write(sys.stdout.fileno(), b"ReduceMeanCheckIfOneDNNSupport\n")
+        emit_protocol_json({
+            "provider": "tempo-opencv-paddleocr",
+            "analysisFps": 1,
+            "width": 1,
+            "height": 1,
+            "frames": [],
+            "textObservations": [],
+            "ocrAvailable": False,
+            "ocrDevice": "self-test",
+        })
+        return 0
+    if not args.video:
+        parser.error("video is required unless --protocol-self-test is used")
 
     capture = cv2.VideoCapture(args.video)
     if not capture.isOpened():
@@ -182,7 +230,7 @@ def main() -> int:
         sampled += 1
         index += 1
     capture.release()
-    print(json.dumps({
+    emit_protocol_json({
         "provider": "tempo-opencv-paddleocr",
         "analysisFps": analysis_fps,
         "width": 320,
@@ -191,11 +239,12 @@ def main() -> int:
         "textObservations": observations,
         "ocrAvailable": ocr is not None,
         "ocrDevice": ocr_device,
-    }, separators=(",", ":")))
+    })
     return 0
 
 
 if __name__ == "__main__":
+    isolate_protocol_stdout()
     try:
         raise SystemExit(main())
     except Exception as error:

@@ -328,12 +328,34 @@ router.post("/:projectId/ai/edit-like-this", async (req: Request, res: Response)
   let eltParts: AIMessagePart[] = [];
   let eltPartSequence = 0;
   const nextEltPartId = () => `elt-part-${Date.now()}-${++eltPartSequence}`;
+  const storedAnalysisCheckpoint = projectData.editLikeThisAnalysisCheckpoint?.referenceUrl === url
+    ? projectData.editLikeThisAnalysisCheckpoint.checkpoint
+    : undefined;
+  let latestAnalysisCheckpoint = storedAnalysisCheckpoint;
 
   try {
     let blueprint: EditBlueprint | null = null;
     let candidateBenchmark: Awaited<ReturnType<typeof evaluateKnownReferenceBlueprint>>;
 
-    for await (const event of generateBlueprint(url, { signal: abortController.signal })) {
+    for await (const event of generateBlueprint(url, {
+      signal: abortController.signal,
+      analysisCheckpoint: storedAnalysisCheckpoint,
+      onAnalysisCheckpoint: async (checkpoint) => {
+        latestAnalysisCheckpoint = checkpoint;
+        const current = await db.query.projects.findFirst({ where: eq(projects.id, project.id) });
+        const currentData = ((current?.data || projectData) || {}) as Record<string, any>;
+        await db.update(projects).set({
+          data: {
+            ...currentData,
+            editLikeThisAnalysisCheckpoint: {
+              referenceUrl: url,
+              status: "in_progress",
+              checkpoint,
+            },
+          },
+        }).where(eq(projects.id, project.id));
+      },
+    })) {
       if (event.step === "complete") {
         blueprint = event.blueprint;
         sendSSE("progress", {
@@ -622,6 +644,9 @@ router.post("/:projectId/ai/edit-like-this", async (req: Request, res: Response)
     // bounded evidence-driven repair pass is allowed; persistent mismatch is
     // surfaced honestly instead of being labelled polished.
     let visualVerification: Awaited<ReturnType<typeof verifyRecreationAgainstReference>> | undefined;
+    let initialVisualVerification: typeof visualVerification;
+    let repairVisualVerification: typeof visualVerification;
+    let repairAccepted = false;
     try {
       sendSSE("progress", { step: "verifying_reference", detail: "Comparing complex ranges with the retained reference..." });
       visualVerification = await verifyRecreationAgainstReference({
@@ -637,6 +662,7 @@ router.post("/:projectId/ai/edit-like-this", async (req: Request, res: Response)
           detail: `Rendering comparison frames ${captured}/${total}...`,
         }),
       });
+      initialVisualVerification = visualVerification;
       if (!visualVerification.ok) {
         sendSSE("progress", { step: "repairing_reference", detail: "Repairing measured visual mismatches..." });
         const preRepairSnapshot = finalSnapshot;
@@ -686,15 +712,23 @@ router.post("/:projectId/ai/edit-like-this", async (req: Request, res: Response)
               detail: `Re-rendering repaired comparison frames ${captured}/${total}...`,
             }),
           });
-          visualVerification = repairedVerification;
+          repairVisualVerification = repairedVerification;
           if (repairedVerification.ok) {
             finalSnapshot = repairedSnapshot;
             conformance = repairedConformance;
+            visualVerification = repairedVerification;
+            repairAccepted = true;
           } else {
             finalSnapshot = preRepairSnapshot;
             conformance = preRepairConformance;
+            visualVerification = initialVisualVerification;
             warnings.push("Rejected the bounded repair because its rendered comparison still failed; retained the pre-repair deterministic edit");
           }
+        } else {
+          finalSnapshot = preRepairSnapshot;
+          conformance = preRepairConformance;
+          visualVerification = initialVisualVerification;
+          warnings.push("Rejected the bounded repair because it violated deterministic recreation conformance; retained the pre-repair deterministic edit");
         }
         if (!visualVerification.ok) {
           qualityStatus = "draft";
@@ -731,7 +765,15 @@ router.post("/:projectId/ai/edit-like-this", async (req: Request, res: Response)
       editLikeThisWarnings: warnings,
       editLikeThisAudioPolicy: audioPolicy,
       editLikeThisVisualVerification: visualVerification,
+      editLikeThisVisualVerificationInitial: initialVisualVerification,
+      editLikeThisVisualVerificationRepair: repairVisualVerification,
+      editLikeThisRepairAccepted: repairAccepted,
       editLikeThisBenchmark: candidateBenchmark?.report,
+      editLikeThisAnalysisCheckpoint: latestAnalysisCheckpoint ? {
+        referenceUrl: url,
+        status: "complete",
+        checkpoint: latestAnalysisCheckpoint,
+      } : freshData.editLikeThisAnalysisCheckpoint,
     };
     const priorMessages: AIMessage[] = Array.isArray(freshData.aiMessages)
       ? freshData.aiMessages

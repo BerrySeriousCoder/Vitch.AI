@@ -7,11 +7,14 @@ repo_dir="$(cd -- "$script_dir/.." && pwd)"
 cv_dir="$repo_dir/apps/api/scripts/reference-cv"
 cv_venv="$cv_dir/.venv"
 requirements_file="$repo_dir/apps/api/scripts/reference-cv-requirements.txt"
+reference_cv_worker="$repo_dir/apps/api/scripts/reference_cv_worker.py"
 
 install_cv=true
 install_browser=true
 pull_services=true
 check_only=false
+cv_paddle_backend="auto"
+paddle_version="3.2.0"
 
 usage() {
   cat <<'EOF'
@@ -21,6 +24,8 @@ Install Tempo's project dependencies in their expected locations.
 
 Options:
   --without-cv        Skip the optional OpenCV/PaddleOCR Python environment
+  --cv-cpu            Force the CPU-only PaddlePaddle wheel
+  --cv-gpu            Force the CUDA-enabled PaddlePaddle wheel
   --without-browser   Skip the Playwright Chromium download
   --without-services  Skip pulling the PostgreSQL and Redis Docker images
   --check             Check the current installation without downloading anything
@@ -31,6 +36,8 @@ EOF
 for argument in "$@"; do
   case "$argument" in
     --without-cv) install_cv=false ;;
+    --cv-cpu) cv_paddle_backend="cpu" ;;
+    --cv-gpu) cv_paddle_backend="gpu" ;;
     --without-browser) install_browser=false ;;
     --without-services) pull_services=false ;;
     --check) check_only=true ;;
@@ -53,6 +60,74 @@ node_major_version() {
 
 python_version_is_supported() {
   "$1" -c 'import sys; raise SystemExit(0 if sys.version_info >= (3, 10) else 1)'
+}
+
+cv_protocol_is_valid() {
+  "$cv_venv/bin/python" "$reference_cv_worker" --protocol-self-test 2>/dev/null \
+    | "$cv_venv/bin/python" -c 'import json, sys; value = json.load(sys.stdin); raise SystemExit(0 if value.get("provider") == "tempo-opencv-paddleocr" else 1)'
+}
+
+resolve_cv_paddle_backend() {
+  if [[ "$cv_paddle_backend" != "auto" ]]; then
+    return
+  fi
+  if command_exists nvidia-smi && nvidia-smi -L >/dev/null 2>&1; then
+    cv_paddle_backend="gpu"
+  else
+    cv_paddle_backend="cpu"
+  fi
+}
+
+installed_paddle_backend() {
+  "$cv_venv/bin/python" -c \
+    'import paddle; print("gpu" if paddle.is_compiled_with_cuda() else "cpu")' \
+    2>/dev/null
+}
+
+paddle_install_matches() {
+  local expected_backend="$1"
+  "$cv_venv/bin/python" - "$paddle_version" "$expected_backend" <<'PY'
+import sys
+import paddle
+
+expected_version, expected_backend = sys.argv[1:]
+actual_backend = "gpu" if paddle.is_compiled_with_cuda() else "cpu"
+raise SystemExit(0 if paddle.__version__ == expected_version and actual_backend == expected_backend else 1)
+PY
+}
+
+install_paddle() {
+  resolve_cv_paddle_backend
+  if paddle_install_matches "$cv_paddle_backend" 2>/dev/null; then
+    echo "Tempo setup: keeping Paddle $paddle_version ($cv_paddle_backend)."
+    return
+  fi
+
+  # CPU and GPU Paddle use different distribution names but both provide the
+  # same Python modules. Remove either variant before switching backends.
+  "$cv_venv/bin/python" -m pip uninstall --yes paddlepaddle paddlepaddle-gpu >/dev/null 2>&1 || true
+  if [[ "$cv_paddle_backend" == "gpu" ]]; then
+    echo "Tempo setup: NVIDIA GPU detected; installing CUDA 12.6 Paddle $paddle_version..."
+    "$cv_venv/bin/python" -m pip install --no-cache-dir \
+      "paddlepaddle-gpu==$paddle_version" \
+      --index-url https://www.paddlepaddle.org.cn/packages/stable/cu126/
+  else
+    echo "Tempo setup: installing CPU Paddle $paddle_version..."
+    "$cv_venv/bin/python" -m pip install --no-cache-dir \
+      "paddlepaddle==$paddle_version" \
+      --index-url https://www.paddlepaddle.org.cn/packages/stable/cpu/
+  fi
+}
+
+verify_paddle_device() {
+  local backend
+  backend="$(installed_paddle_backend)"
+  if [[ "$backend" == "gpu" ]]; then
+    "$cv_venv/bin/python" -c \
+      'import paddle; count = paddle.device.cuda.device_count(); assert count > 0, "CUDA Paddle installed but no GPU is visible"; paddle.set_device("gpu:0"); print(f"Tempo setup: Paddle CUDA ready ({count} device(s))")'
+  else
+    echo "Tempo setup: Paddle is using CPU. OCR on long references will be substantially slower."
+  fi
 }
 
 print_system_status() {
@@ -111,8 +186,9 @@ check_installation() {
 
   if "$install_cv"; then
     if [[ -x "$cv_venv/bin/python" ]] \
-      && "$cv_venv/bin/python" -c 'import cv2, paddle, paddleocr' >/dev/null 2>&1; then
-      echo "[ok] OpenCV/PaddleOCR environment"
+      && "$cv_venv/bin/python" -c 'import cv2, paddle, paddleocr' >/dev/null 2>&1 \
+      && cv_protocol_is_valid; then
+      echo "[ok] OpenCV/PaddleOCR environment (Paddle $(installed_paddle_backend))"
     else
       echo "[missing] OpenCV/PaddleOCR environment"
       status=1
@@ -171,12 +247,13 @@ if "$install_cv"; then
   echo "Tempo setup: installing OpenCV and PaddleOCR in $cv_venv..."
   python3 -m venv "$cv_venv"
   "$cv_venv/bin/python" -m pip install --no-cache-dir --upgrade pip setuptools wheel
-  "$cv_venv/bin/python" -m pip install --no-cache-dir \
-    paddlepaddle==3.2.0 \
-    --index-url https://www.paddlepaddle.org.cn/packages/stable/cpu/
+  install_paddle
   "$cv_venv/bin/python" -m pip install --no-cache-dir -r "$requirements_file"
   "$cv_venv/bin/python" -c \
     'import cv2, paddle, paddleocr; print(f"Tempo setup: OpenCV {cv2.__version__}, Paddle {paddle.__version__}, PaddleOCR ready")'
+  verify_paddle_device
+  cv_protocol_is_valid
+  echo "Tempo setup: OpenCV worker JSON protocol ready"
 
   echo "Tempo setup: add these values to .env to require the optional worker:"
   echo "  REFERENCE_CV_MODE=opencv"
@@ -200,4 +277,3 @@ echo "1. Fill in .env (at minimum JWT_SECRET and JWT_REFRESH_SECRET)."
 echo "2. Run: docker compose up -d"
 echo "3. Run: pnpm db:push"
 echo "4. Run: pnpm dev"
-

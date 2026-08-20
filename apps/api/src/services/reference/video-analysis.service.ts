@@ -60,6 +60,18 @@ export interface WholeVideoAnalysis {
   usage: ReferenceAnalysisUsage;
 }
 
+export interface WholeVideoAnalysisCheckpoint {
+  schemaVersion: 1;
+  promptVersion: string;
+  model: string;
+  sceneSignature: string;
+  rawScenes: Record<string, unknown>;
+  usage: ReferenceAnalysisUsage;
+  updatedAt: string;
+}
+
+const ANALYSIS_PROMPT_VERSION = "2026-08-20-text-geometry-coverage-v2";
+
 export interface FullDetailAnalysisChunk {
   index: number;
   scenes: SceneSegment[];
@@ -448,13 +460,17 @@ The FFmpeg boundaries are edit cuts, not a license to flatten everything between
 
 Most important: capture EVERY editorial text state, including extremely short title cards and word-by-word text. Editorial text is text added by the editor, not signs/UI inside filmed footage. Preserve exact spelling and case. When words replace one another, emit EACH visible word as a separate textOverlays item with sequenceMode="exclusive", the same sequenceGroupId, and its own timing. Do not combine those words into one sentence. Analyze every overlay independently: one reference may use several typefaces.
 
+GEOMETRY CONTRACT: textOverlays.geometry.x/y are the CENTER of the text box in normalized full-frame coordinates. Local measuredText rect.x/y are TOP-LEFT OCR coordinates. Convert OCR rectangles to centres with x=rect.x+rect.width/2 and y=rect.y+rect.height/2. Never copy OCR rect.x/y directly into geometry.x/y. Before returning, check every simultaneously visible text box for unintended intersection; preserve intentional reference overlap only when it is visibly present in the attached frames.
+
 TEXT MOTION: animation is not a style label. Populate animationSpec whenever text changes over time. Set unit to char/word/line/whole and report every independently animated channel with normalized offsetRatio, durationRatio, and staggerRatio. Use channels such as opacity, offsetX/Y, scale, rotation, tracking, or blur. Put whole-layer movement in animationSpec.motion keyframes. If the word remains centered, OMIT whole-layer motion—never invent a zoom, drift, or bounce. For fontFamilyHint choose the closest exact family from the shortlist. Give every text overlay a global zIndex using the same ordering domain as composition layers; panels that visibly cover text must have a higher zIndex.
 
 MEDIA INSIDE TEXT: if moving footage or an image is visible only inside glyphs, set text fillMode="media-matte" and emit a composition layer with role="matte-fill" and matteTextOverlayIndex pointing to that text item. Do not describe it as ordinary transparent text.
 
 MULTI-LAYER COMPOSITING: whenever two or more videos/images are visible at once, emit composition.layers. Each layer needs a stable id, role, independent contentDescription for user-asset matching, zIndex, normalized timing, final viewport, cover/contain fit, and motion keyframes for every observed geometry change. A 2x2 layout is four layers, not one full-frame "split-screen" effect. Use viewport x/y/width/height against the complete frame. Layer timing is its complete lifetime, NOT its entrance duration. Motion timeRatio is relative to that lifetime, so a 0.55-second reveal on a layer which persists for 3 seconds must reach its final viewport near timeRatio 0.18 and then hold; never place the final entrance keyframe at 1 merely because the layer survives to the scene end. For growing panels, measure at least start, midpoint, and final geometry. Start and final viewport values must be numerically different. Set focalPoint to the observed crop anchor: a left-to-right expansion which initially shows the source's right edge uses focalPoint.x=1; right-to-left showing the left edge uses x=0; top-to-bottom showing the bottom uses y=1. Set replaceBase=true when these layers fully define the scene.
 
-COMPOSITION PHASES: do not infer that an earlier layer disappears merely because a later layer begins. Emit composition.phases for every distinct visibility/overlap state. Each phase lists all active layer ids and text overlay indices. This is how you preserve text underneath panels, a background continuing behind picture-in-picture, or a matte continuing while overlays cover it. Extend the layer/text timing through every phase where it remains active.
+COMPOSITION PHASES: do not infer that an earlier layer disappears merely because a later layer begins. Emit composition.phases for every distinct visibility/overlap state. Each phase lists all active layer ids and text overlay indices. This is how you preserve text underneath panels, a background continuing behind picture-in-picture, or a matte continuing while overlays cover it. Phase membership never replaces authored text timing: never widen exclusive word captions to a phase, never move a cumulative title's start earlier, and extend only the end of a genuinely persistent static/cumulative title. Exclusive overlays in one sequenceGroupId must have non-overlapping timing intervals.
+
+TEXT COVERAGE SELF-CHECK: every high-confidence measuredText observation in the target range must map to a temporally active textOverlays item, and every textOverlays item must be active in at least one composition phase. If transcript words are also visibly rendered, preserve the rendered text independently of the audio transcript. Do not end a caption sequence early merely because the scene is near a chunk boundary.
 
 NUMERIC SELF-AUDIT: before returning JSON, compare the fields against your own description. If a phase says a panel covers text, the panel zIndex must be strictly higher than both the text zIndex and its linked matte-fill zIndex. A linked matte-fill and its text overlay use the same visual zIndex. If you describe reveal/grow/slide motion, at least one numeric property must change between keyframes. Never encode two identical keyframes as motion.
 
@@ -553,12 +569,24 @@ export async function analyzeWholeVideo(
   scenes: SceneSegment[],
   transcript?: MediaAudioTranscript,
   audio?: AudioAnalysis,
-  options: { signal?: AbortSignal; evidence?: ReferenceAnalysisEvidence } = {}
+  options: {
+    signal?: AbortSignal;
+    evidence?: ReferenceAnalysisEvidence;
+    checkpoint?: WholeVideoAnalysisCheckpoint;
+    onCheckpoint?: (checkpoint: WholeVideoAnalysisCheckpoint) => void | Promise<void>;
+  } = {}
 ): Promise<WholeVideoAnalysis> {
   if (!env.GEMINI_API_KEY) throw new Error("GEMINI_API_KEY not configured");
   const ai = new GoogleGenAI({ apiKey: env.GEMINI_API_KEY });
   let prepared: PreparedInlineVideo | undefined;
-  let usage = estimateReferenceUsage(undefined, 0);
+  const sceneSignature = scenes.map((scene) =>
+    `${scene.index}:${scene.startTime.toFixed(3)}:${scene.endTime.toFixed(3)}`
+  ).join("|");
+  const canResume = options.checkpoint?.schemaVersion === 1 &&
+    options.checkpoint.promptVersion === ANALYSIS_PROMPT_VERSION &&
+    options.checkpoint.model === env.GEMINI_VIDEO_ANALYSIS_MODEL &&
+    options.checkpoint.sceneSignature === sceneSignature;
+  let usage = canResume ? options.checkpoint!.usage : estimateReferenceUsage(undefined, 0);
   const transcriptionUsd = transcript?.usage?.estimatedCostUsd || 0;
   const usageWithTranscription = (): ReferenceAnalysisUsage => ({
     ...usage,
@@ -676,7 +704,26 @@ export async function analyzeWholeVideo(
       return parsed.scenes;
     };
 
-    const collected = new Map<number, unknown>();
+    const collected = new Map<number, unknown>(canResume
+      ? Object.entries(options.checkpoint!.rawScenes)
+        .filter(([index]) => Number.isInteger(Number(index)))
+        .map(([index, value]) => [Number(index), value] as const)
+      : []);
+    const emitCheckpoint = async () => {
+      if (!options.onCheckpoint) return;
+      await options.onCheckpoint({
+        schemaVersion: 1,
+        promptVersion: ANALYSIS_PROMPT_VERSION,
+        model: env.GEMINI_VIDEO_ANALYSIS_MODEL,
+        sceneSignature,
+        rawScenes: Object.fromEntries([...collected.entries()].sort(([left], [right]) => left - right)),
+        usage: usageWithTranscription(),
+        updatedAt: new Date().toISOString(),
+      });
+    };
+    if (collected.size) {
+      logger.info({ resumedScenes: [...collected.keys()].sort((a, b) => a - b) }, "Resuming full-detail analysis from durable scene checkpoints");
+    }
     const accept = (rawScenes: unknown[], targetScenes: SceneSegment[]) => {
       const targetIndices = new Set(targetScenes.map((scene) => scene.index));
       for (const raw of rawScenes as any[]) {
@@ -690,12 +737,14 @@ export async function analyzeWholeVideo(
       label: string,
       depth = 0
     ): Promise<void> => {
+      targetScenes = targetScenes.filter((scene) => !collected.has(scene.index));
       if (!targetScenes.length) return;
       let lastError: unknown;
       const attempts = targetScenes.length === 1 ? 2 : 1;
       for (let attempt = 1; attempt <= attempts; attempt++) {
         try {
           accept(await requestScenes(targetScenes, `${label}-attempt-${attempt}`), targetScenes);
+          await emitCheckpoint();
         } catch (error: any) {
           if (error?.name === "AbortError" || options.signal?.aborted) throw error;
           lastError = error;
@@ -813,6 +862,8 @@ Return one corrected scene. Preserve valid prior semantics, but measure the miss
           );
           const { index: _index, startTime: _startTime, duration: _duration, onBeat: _onBeat, ...partial } = selected;
           normalized[sceneIndex] = partial;
+          collected.set(sceneIndex, rawFocused);
+          await emitCheckpoint();
         } catch (err: any) {
           if (err?.name === "AbortError" || options.signal?.aborted) throw err;
           logger.warn({ err: err?.message, sceneIndex, issueCodes }, "Focused reference repair unavailable");
@@ -829,7 +880,13 @@ Return one corrected scene. Preserve valid prior semantics, but measure the miss
         .slice(0, 8)
         .map((issue) => `${issue.code}@scene${issue.segmentIndex}`)
         .join(", ");
-      throw new Error(`Reference analysis remained structurally incomplete after focused repair: ${summary}`);
+      const error = new Error(`Reference analysis remained structurally incomplete after focused repair: ${summary}`);
+      Object.defineProperty(error, "code", {
+        value: "REFERENCE_ANALYSIS_INCOMPLETE",
+        enumerable: true,
+        configurable: true,
+      });
+      throw error;
     }
     const finalUsage = usageWithTranscription();
     logger.info({ sceneCount: normalized.length, usage: finalUsage }, "Full-detail reference analysis complete");

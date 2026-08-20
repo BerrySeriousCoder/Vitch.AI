@@ -31,6 +31,7 @@ import {
   type ProjectState,
 } from "../ai/tools/index.js";
 import type { AssetMapping } from "./asset-matching.service.js";
+import { adaptTextOverlaysForDelivery } from "./reference-layout-adaptation.service.js";
 
 export interface RecreationProjectContext {
   id: string;
@@ -305,10 +306,15 @@ function effectiveTextTiming(
     phase.activeTextOverlayIndices.includes(overlayIndex)
   );
   const base = { startRatio: overlay.timing?.startRatio ?? 0, endRatio: overlay.timing?.endRatio ?? 1 };
-  if (!phases.length) return base;
+  if (!phases.length || overlay.sequenceMode === "exclusive") return base;
   const ranges = phases.map((phase) => phaseRange(segment, phase, blueprint));
   return {
-    startRatio: Math.max(0, Math.min(base.startRatio, ...ranges.map((range) => range.startRatio))),
+    // A phase describes whether an overlay may be visible; its authored timing
+    // remains the authority for when the overlay enters. Moving the start back
+    // to the beginning of a broad phase turns word-by-word captions into a pile
+    // of full-scene clips. Non-exclusive titles may persist through a later
+    // phase, but they must never appear before their measured entrance.
+    startRatio: Math.max(0, base.startRatio),
     endRatio: Math.min(1, Math.max(base.endRatio, ...ranges.map((range) => range.endRatio))),
   };
 }
@@ -527,6 +533,12 @@ export async function compileRecreationDraft(
     beatTimes: blueprint.audioAnalysis.beats.map((beat) => beat.time),
   });
   const warnings: string[] = [];
+  const deliveryTextBySegment = new Map<number, BlueprintSegment["textOverlays"]>();
+  for (const segment of blueprint.segments) {
+    const adapted = adaptTextOverlaysForDelivery(blueprint, segment, settings);
+    deliveryTextBySegment.set(segment.index, adapted.overlays);
+    warnings.push(...adapted.warnings);
+  }
   if (formatChanged && project.tracks.some((track) => track.clips.length > 0)) {
     warnings.push(`Reflowed existing pixel-space layers from ${project.settings.width}x${project.settings.height} to ${settings.width}x${settings.height}`);
   }
@@ -789,7 +801,7 @@ export async function compileRecreationDraft(
   const textClipByOverlay = new Map<string, string>();
   for (const segment of blueprint.segments) {
     for (let overlayIndex = 0; overlayIndex < segment.textOverlays.length; overlayIndex++) {
-      const overlay = segment.textOverlays[overlayIndex]!;
+      const overlay = deliveryTextBySegment.get(segment.index)?.[overlayIndex] || segment.textOverlays[overlayIndex]!;
       if (!overlay.text.trim()) continue;
       const textTiming = effectiveTextTiming(segment, overlayIndex, blueprint);
       const startRatio = Math.max(0, Math.min(1, textTiming.startRatio));
@@ -911,6 +923,12 @@ export async function compileRecreationDraft(
         blueprint,
         state
       );
+      const opacityKeys = findClip(state, clipId).keyframes.filter((keyframe) => keyframe.property === "opacity");
+      if (opacityKeys.length && opacityKeys.every((keyframe) => Number(keyframe.value) <= 0)) {
+        throw new Error(
+          `Blueprint text ${segment.index}:${overlayIndex} (“${overlay.text}”) is permanently hidden by its composition phases`
+        );
+      }
     }
   }
 
@@ -1133,9 +1151,11 @@ export function validateRecreationConformance(
         issues.push({ severity: "error", code: "source_range_overrun", message: `Segment ${binding.segmentIndex} consumes source past ${duration.toFixed(3)}s`, clipId: clip.id, segmentIndex: binding.segmentIndex });
       }
     } else if (binding.kind === "text-overlay") {
-      const expectedOverlay = blueprint.segments
-        .find((segment) => segment.index === binding.segmentIndex)
-        ?.textOverlays[binding.overlayIndex ?? -1];
+      const expectedSegment = blueprint.segments.find((segment) => segment.index === binding.segmentIndex);
+      const expectedOverlay = expectedSegment && state.settings
+        ? adaptTextOverlaysForDelivery(blueprint, expectedSegment, state.settings)
+          .overlays[binding.overlayIndex ?? -1]
+        : expectedSegment?.textOverlays[binding.overlayIndex ?? -1];
       const expectedText = expectedOverlay?.appearance?.uppercase
         ? expectedOverlay.text.toUpperCase()
         : expectedOverlay?.text;
@@ -1169,6 +1189,16 @@ export function validateRecreationConformance(
             segmentIndex: binding.segmentIndex,
           });
         }
+      }
+      const opacityKeys = clip.keyframes.filter((keyframe) => keyframe.property === "opacity");
+      if (opacityKeys.length && opacityKeys.every((keyframe) => Number(keyframe.value) <= 0)) {
+        issues.push({
+          severity: "error",
+          code: "text_permanently_hidden",
+          message: `Text overlay ${binding.segmentIndex}:${binding.overlayIndex} is permanently transparent`,
+          clipId: clip.id,
+          segmentIndex: binding.segmentIndex,
+        });
       }
     }
     if (binding.kind === "segment" || binding.kind === "composition-layer") {
@@ -1304,8 +1334,19 @@ export function validateRecreationConformance(
 
   for (const issue of validateTimeline(state.tracks, state.transitions || [], state.sequences || [])) {
     if (issue.severity === "info") continue;
+    const issueTrack = state.tracks.find((track) => track.id === issue.trackId);
+    const generatedTextOverlap = issue.code === "overlap_without_transition" &&
+      issueTrack?.type === "text" &&
+      issueTrack.clips.some((clip) =>
+        clip.id === issue.clipId &&
+        clip.referenceEditBinding?.blueprintId === blueprint.id &&
+        clip.referenceEditBinding.kind === "text-overlay"
+      );
     issues.push({
-      severity: issue.severity === "error" ? "error" : "warning",
+      // Same-track generated text has ambiguous paint order. In a reference
+      // recreation it is never safe to wave this away as a generic warning:
+      // intentional simultaneous typography must use explicit depth tracks.
+      severity: issue.severity === "error" || generatedTextOverlap ? "error" : "warning",
       code: `timeline_${issue.code}`,
       message: issue.message,
       clipId: issue.clipId,

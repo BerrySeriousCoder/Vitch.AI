@@ -1,6 +1,6 @@
 import { runAgentLoop, type SSEEvent } from "../ai/agent.service.js";
 import { logger } from "../../utils/logger.js";
-import type { EditBlueprint, MediaAsset, StyleDNA } from "@tempo/types";
+import type { EditBlueprint, MediaAsset, ProjectSettings, StyleDNA } from "@tempo/types";
 import type { AssetMapping } from "./asset-matching.service.js";
 import type { Content } from "@google/genai";
 import type { ReferenceEditComparison } from "../critique/reference-comparison.service.js";
@@ -56,7 +56,8 @@ function buildRecreationPrompt(
   blueprint: EditBlueprint,
   mappings: AssetMapping[],
   manifest: RecreationManifest,
-  styleDna?: StyleDNA | null
+  styleDna?: StyleDNA | null,
+  targetSettings?: Pick<ProjectSettings, "width" | "height">
 ): string {
   const beatTimes = blueprint.audioAnalysis.beats
     .slice(0, 80)
@@ -69,6 +70,8 @@ function buildRecreationPrompt(
     `Recreate this video edit as STYLE TRANSFER from the reference — do not clone exact reference shots.`,
     `A deterministic compiler has already assembled and source-bounds-checked the complete reference cut. Polish that cut; do not rebuild it.`,
     `The reference was ${blueprint.totalDuration.toFixed(1)}s with ${blueprint.segments.length} segments.`,
+    `Reference raster: ${blueprint.referenceWidth || "unknown"}x${blueprint.referenceHeight || "unknown"}; target raster: ${targetSettings?.width || "unknown"}x${targetSettings?.height || "unknown"}.`,
+    `The compiler already adapted text groups into target title-safe bounds when those aspect ratios differ. Preserve relative typography hierarchy, then inspect simultaneous text for collision, clipping, and platform-UI occlusion; reflow only the failing group rather than copying reference pixels or moving unrelated captions.`,
     `Overall style: ${blueprint.overallStyle.pacing} pacing, ${blueprint.overallStyle.mood} mood, ${blueprint.overallStyle.genre} genre.`,
     `Color grading hint: ${blueprint.overallStyle.colorGrading || "match segment palettes"}.`,
     blueprint.audioAnalysis.beatSource === "detected" && blueprint.audioAnalysis.bpm > 0
@@ -207,7 +210,7 @@ function buildRecreationPrompt(
       "8. Preserve the compiled hard cuts; do not add speculative transitions."
     );
   }
-  parts.push("9. Finish with validate_graphic_layout and validate_timeline. The server performs the authoritative reference comparison after your pass; do not claim visual fidelity from structural validation alone.");
+  parts.push("9. Finish with validate_graphic_layout and validate_timeline. Same-track text overlap is a structural caption failure: never call add_transition for it and never label it intentional or safe to ignore. The server performs the authoritative reference comparison after your pass; do not claim visual fidelity from structural validation alone.");
   parts.push("10. Presets are conveniences, not constraints. When measured recipes exist, preserve their custom keyframes, viewports, text animator channels, and matte relationships exactly. Never add a guessed zoom/drift/transition merely because no preset name matches.");
 
   return parts.join("\n");
@@ -231,7 +234,7 @@ export async function* recreateEdit(
   );
 
   const dna = styleDna ?? projectContext.styleDna ?? null;
-  const prompt = buildRecreationPrompt(blueprint, mappings, manifest, dna);
+  const prompt = buildRecreationPrompt(blueprint, mappings, manifest, dna, projectContext.settings);
   const conversationHistory: Content[] = [];
 
   for await (const event of runAgentLoop(
@@ -262,17 +265,27 @@ export async function* repairVerifiedRecreation(
     result.verdict === "mismatch" || result.differences.some((difference) => difference.severity === "error")
   );
   if (!failures.length) return;
+  const allowedClipIds = [...new Set(failures.flatMap(({ segmentIndex }) =>
+    manifest.entries
+      .filter((entry) => entry.binding.segmentIndex === segmentIndex)
+      .map((entry) => entry.clipId)
+  ))];
   const prompt = `Repair this deterministic Edit Like This draft using the paired reference/render evidence below.
 
 ${JSON.stringify(failures, null, 2)}
 
+The only clips in scope are: ${JSON.stringify(allowedClipIds)}
+
 Rules:
 - Inspect the timeline first and use only existing clip ids or registered tools.
+- Modify only the listed in-scope clip ids. Do not bulk-update a whole track or touch clips from passing ranges.
 - Preserve referenceEditBinding clip identity, source selection, source bounds, and audio policy.
 - Correct measured viewport/keyframe timing, text size/animation, matte relation, z-order, and restrained color only where the evidence identifies a mismatch.
 - Do not add speculative presets, clips, effects, or whole-layer motion.
+- Do not remove strokes, effects, animation channels, or text merely to make validation pass unless a specific paired-frame difference identifies that exact property.
 - Matte-fill and support clips must never receive automatic color grading.
-- Finish with validate_graphic_layout and validate_timeline. The server will render and compare the same ranges again.`;
+- Never use add_transition to address overlapping text clips. Text overlap is a timing/layout failure and must remain unresolved unless the paired evidence supports a permitted in-scope text correction.
+- Finish with validate_graphic_layout and validate_timeline. Treat any warning affecting an in-scope clip as unresolved; do not claim completion until both validators pass. The server will render and compare the same ranges again.`;
   for await (const event of runAgentLoop(
     { ...projectContext, editBlueprint: blueprint },
     mediaAssets,

@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   connectedForegroundComponents,
   frameEvidence,
+  parseOpenCvWorkerOutput,
   selectVisualEventTimes,
 } from "./local-visual-evidence.service.js";
 
@@ -34,5 +35,25 @@ describe("local reference visual evidence", () => {
     for (let y = 2; y <= 5; y++) for (let x = 3; x <= 7; x++) pixels[y * 10 + x] = 255;
     const evidence = frameEvidence(pixels, undefined, 10, 10, 0);
     expect(evidence.foreground).toEqual({ x: 0.3, y: 0.2, width: 0.5, height: 0.4 });
+  });
+
+  it("recovers the worker payload when native oneDNN output pollutes stdout", () => {
+    const payload = {
+      provider: "tempo-opencv-paddleocr",
+      analysisFps: 12,
+      width: 320,
+      height: 180,
+      frames: [],
+      textObservations: [],
+      ocrAvailable: true,
+      ocrDevice: "cpu",
+    };
+    const stdout = `ReduceMeanCheckIfOneDNNSupport\n${JSON.stringify(payload)}\n`;
+    expect(parseOpenCvWorkerOutput(stdout)).toEqual(payload);
+  });
+
+  it("rejects worker output that has no valid evidence payload", () => {
+    expect(() => parseOpenCvWorkerOutput("ReduceMeanCheckIfOneDNNSupport\n"))
+      .toThrow("OpenCV worker returned invalid JSON");
   });
 });

@@ -15,6 +15,7 @@ export interface RecreationVerificationReport {
   ok: boolean;
   comparisons: Array<{ segmentIndex: number; result: ReferenceEditComparison }>;
   checkedRanges: number;
+  captureFailures: Array<{ segmentIndex: number; missingTimes: number[] }>;
 }
 
 interface VerificationWorkItem {
@@ -22,12 +23,12 @@ interface VerificationWorkItem {
   pairs: Array<{ referenceTime: number; editTime: number }>;
 }
 
-function complexSegments(blueprint: EditBlueprint) {
+function verificationSegments(blueprint: EditBlueprint) {
   return blueprint.segments.filter((segment) =>
     Boolean(segment.composition?.layers.length) ||
-    segment.textOverlays.some((overlay) => overlay.fillMode === "media-matte" || Boolean(overlay.animationSpec)) ||
+    segment.textOverlays.length > 0 ||
     Boolean(segment.transitionSpec)
-  ).slice(0, 4);
+  );
 }
 
 export function verificationTimesForSegment(blueprint: EditBlueprint, segmentIndex: number): number[] {
@@ -35,9 +36,17 @@ export function verificationTimesForSegment(blueprint: EditBlueprint, segmentInd
 }
 
 export function verificationCaptureTimes(blueprint: EditBlueprint): number[] {
-  return [...new Set(complexSegments(blueprint).flatMap((segment) =>
+  return [...new Set(verificationSegments(blueprint).flatMap((segment) =>
     verificationPairs(blueprint, segment.index).map((pair) => Number(pair.editTime.toFixed(3)))
   ))].sort((a, b) => a - b);
+}
+
+export function missingVerificationCaptureTimes(
+  expectedTimes: number[],
+  captured: Array<{ time: number }>
+): number[] {
+  const present = new Set(captured.map((frame) => Number(frame.time.toFixed(3))));
+  return expectedTimes.filter((time) => !present.has(Number(time.toFixed(3))));
 }
 
 function verificationPairs(blueprint: EditBlueprint, segmentIndex: number) {
@@ -51,10 +60,10 @@ function verificationPairs(blueprint: EditBlueprint, segmentIndex: number) {
     Math.max(start, time - 1 / 30),
     Math.min(end - 0.001, time + 1 / 30),
   ]);
-  const uniform = comparisonSamplePairs(start, end, start, end, 8).map((pair) => pair.referenceTime);
+  const uniform = comparisonSamplePairs(start, end, start, end, 6).map((pair) => pair.referenceTime);
   const times = [...new Set([...uniform, ...aroundEvents].map((time) => Number(time.toFixed(3))))]
     .sort((a, b) => a - b)
-    .slice(0, 16);
+    .slice(0, 12);
   return times.map((time) => ({ referenceTime: time, editTime: time }));
 }
 
@@ -101,8 +110,9 @@ export async function verifyRecreationAgainstReference(input: {
     await downloadFileToPath(storageUrlToKey(input.referenceAssetUrl), referencePath);
   }
   const comparisons: RecreationVerificationReport["comparisons"] = [];
+  const captureFailures: RecreationVerificationReport["captureFailures"] = [];
   try {
-    const work: VerificationWorkItem[] = complexSegments(input.blueprint).map((segment) => ({
+    const work: VerificationWorkItem[] = verificationSegments(input.blueprint).map((segment) => ({
       segment,
       pairs: verificationPairs(input.blueprint, segment.index),
     }));
@@ -120,11 +130,35 @@ export async function verifyRecreationAgainstReference(input: {
           onProgress: input.onCaptureProgress,
         })
       : [];
+    const missingAfterFirstPass = missingVerificationCaptureTimes(captureTimes, captured);
+    if (missingAfterFirstPass.length) {
+      const retryFrames = await sampleCritiqueFrames({
+        projectId: input.projectId,
+        tracks: input.tracks,
+        transitions: input.transitions,
+        sequences: input.sequences || [],
+        times: missingAfterFirstPass,
+        settings: input.settings,
+        onProgress: input.onCaptureProgress
+          ? (completed) => input.onCaptureProgress!(
+              captureTimes.length - missingAfterFirstPass.length + completed,
+              captureTimes.length
+            )
+          : undefined,
+      });
+      captured.push(...retryFrames);
+    }
     const frameByTime = new Map(captured.map((frame) => [Number(frame.time.toFixed(3)), frame]));
     for (const { segment, pairs } of work) {
       const editFrames = pairs.map((pair) => frameByTime.get(Number(pair.editTime.toFixed(3))));
       if (editFrames.some((frame) => !frame)) {
-        throw new Error(`Critique capture omitted one or more frames for segment ${segment.index}`);
+        captureFailures.push({
+          segmentIndex: segment.index,
+          missingTimes: pairs
+            .filter((_, index) => !editFrames[index])
+            .map((pair) => Number(pair.editTime.toFixed(3))),
+        });
+        continue;
       }
       const start = segment.startTime;
       const end = start + segment.duration;
@@ -145,12 +179,13 @@ export async function verifyRecreationAgainstReference(input: {
     if (workDir) await rm(workDir, { recursive: true, force: true }).catch(() => undefined);
   }
   return {
-    ok: comparisons.every(({ result }) =>
+    ok: captureFailures.length === 0 && comparisons.every(({ result }) =>
       result.verdict !== "mismatch" &&
       result.matchScore >= 70 &&
       !result.differences.some((difference) => difference.severity === "error")
     ),
     comparisons,
     checkedRanges: comparisons.length,
+    captureFailures,
   };
 }

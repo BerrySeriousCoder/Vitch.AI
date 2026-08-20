@@ -38,6 +38,11 @@ export interface PartialSegmentData {
   transitionSpec?: BlueprintSegment["transitionSpec"];
 }
 
+// Dense word-by-word captions routinely exceed 24 states inside one detected
+// shot. Keep a defensive bound without severing phase references or silently
+// deleting the second half of a narration sequence.
+export const MAX_TEXT_OVERLAYS_PER_SCENE = 256;
+
 const MOTION_EASINGS = ["hold", "linear", "ease-in", "ease-out", "ease-in-out"] as const;
 
 function safeId(value: unknown): string | undefined {
@@ -182,7 +187,9 @@ function sanitizeComposition(raw: any): BlueprintSegment["composition"] {
           ? phase.activeLayerIds.map(safeId).filter((id: string | undefined): id is string => id !== undefined && ids.has(id))
           : [];
         const activeTextOverlayIndices = Array.isArray(phase.activeTextOverlayIndices)
-          ? phase.activeTextOverlayIndices.map(Number).filter((value: number) => Number.isInteger(value) && value >= 0).slice(0, 24)
+          ? phase.activeTextOverlayIndices.map(Number)
+            .filter((value: number) => Number.isInteger(value) && value >= 0)
+            .slice(0, MAX_TEXT_OVERLAYS_PER_SCENE)
           : [];
         return [{
           id: safeId(phase.id) || `phase-${index}`,
@@ -329,7 +336,7 @@ export function sanitizeSegmentData(raw: any): PartialSegmentData {
       : ["#333333"],
     effects: Array.isArray(raw.effects) ? raw.effects.slice(0, 5).map(String) : [],
     textOverlays: Array.isArray(raw.textOverlays)
-      ? raw.textOverlays.slice(0, 24).map((t: any) => {
+      ? raw.textOverlays.slice(0, MAX_TEXT_OVERLAYS_PER_SCENE).map((t: any) => {
           const geometry = t.geometry && typeof t.geometry === "object"
             ? {
                 x: Math.max(0, Math.min(1, Number(t.geometry.x) || 0.5)),
