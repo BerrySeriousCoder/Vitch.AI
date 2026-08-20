@@ -9,6 +9,16 @@ reference-recreation benchmark scores 99/100; see
 [`MILESTONES.md`](MILESTONES.md) for the exact scope and evidence behind that
 result.
 
+## Demo
+
+[![Watch Tempo recreate a reference edit with different source footage](docs/assets/tempo-agentic-video-editor-demo-poster.jpg)](docs/assets/tempo-agentic-video-editor-demo.mp4?raw=1)
+
+**[▶ Play the 16-second reference-versus-recreation demo](docs/assets/tempo-agentic-video-editor-demo.mp4?raw=1)**
+
+The left side is the reference edit; the right side is Tempo's recreation using
+different source footage. The resulting edit remains a normal, editable Tempo
+timeline rather than a flattened generated video.
+
 ## What Tempo can do
 
 - Edit video, audio, images, text, shapes, SVG, Lottie, and adjustment layers on
